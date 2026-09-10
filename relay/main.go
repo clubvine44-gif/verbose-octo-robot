@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/binary"
 	"flag"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -17,6 +20,7 @@ const (
 	version                 = 1
 	typeIP           byte   = 1
 	typeClose        byte   = 2
+	typeAuth         byte   = 3
 	maxPayload              = 65535
 	maxPacket               = 65535
 	handshakeTimeout        = 10 * time.Second
@@ -69,6 +73,35 @@ func writeFrame(w io.Writer, typ byte, payload []byte) error {
 	}
 	_, err := w.Write(payload)
 	return err
+}
+
+func authenticate(conn net.Conn, expectedToken []byte) error {
+	frame, err := readFrame(conn)
+	if err != nil {
+		return fmt.Errorf("read auth frame: %w", err)
+	}
+	if frame.typ != typeAuth || len(frame.payload) == 0 || len(frame.payload) > maxPayload {
+		return fmt.Errorf("missing authentication frame")
+	}
+	if len(frame.payload) != len(expectedToken) || subtle.ConstantTimeCompare(frame.payload, expectedToken) != 1 {
+		return fmt.Errorf("invalid access token")
+	}
+	return writeFrame(conn, typeAuth, []byte("OK"))
+}
+
+func loadAccessToken(path string) ([]byte, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, fmt.Errorf("-auth-token-file is required")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read auth token file: %w", err)
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" {
+		return nil, fmt.Errorf("auth token file is empty")
+	}
+	return []byte(token), nil
 }
 
 func tunnelClient(conn net.Conn, tun packetDevice) {
@@ -152,7 +185,13 @@ func main() {
 	certFile := flag.String("cert", "server.crt", "TLS certificate PEM")
 	keyFile := flag.String("key", "server.key", "TLS private key PEM")
 	tunName := flag.String("tun", "mayak0", "Linux TUN interface name")
+	authTokenFile := flag.String("auth-token-file", "", "file containing the MAYAK relay access token")
 	flag.Parse()
+
+	authToken, err := loadAccessToken(*authTokenFile)
+	if err != nil {
+		log.Fatalf("load access token: %v", err)
+	}
 
 	tun, err := openTUN(*tunName)
 	if err != nil {
@@ -175,7 +214,7 @@ func main() {
 		log.Fatalf("listen: %v", err)
 	}
 	defer ln.Close()
-	log.Printf("MAYAK relay listening on %s (single client)", *listenAddr)
+	log.Printf("MAYAK relay listening on %s (single client, token authentication)", *listenAddr)
 
 	for {
 		conn, err := ln.Accept()
@@ -194,8 +233,13 @@ func main() {
 			conn.Close()
 			continue
 		}
+		if err := authenticate(tlsConn, authToken); err != nil {
+			log.Printf("authentication from %s failed: %v", conn.RemoteAddr(), err)
+			conn.Close()
+			continue
+		}
 		_ = tlsConn.SetDeadline(time.Time{})
-		log.Printf("client connected: %s", conn.RemoteAddr())
+		log.Printf("client authenticated: %s", conn.RemoteAddr())
 		tunnelClient(tlsConn, tun)
 		log.Printf("client disconnected: %s", conn.RemoteAddr())
 	}
