@@ -20,7 +20,6 @@ const (
 	maxPayload               = 65535
 	maxPacket                = 65535
 	handshakeTimeout         = 10 * time.Second
-	tunPollInterval          = 1 * time.Second
 )
 
 type frame struct {
