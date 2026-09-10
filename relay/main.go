@@ -13,13 +13,14 @@ import (
 )
 
 const (
-	magic       uint32 = 0x4D594B31 // MYK1
-	version            = 1
-	typeIP       byte  = 1
-	typeClose    byte  = 2
-	maxPayload        = 65535
-	maxPacket         = 65535
-	handshakeTimeout  = 10 * time.Second
+	magic             uint32 = 0x4D594B31 // MYK1
+	version                  = 1
+	typeIP             byte  = 1
+	typeClose          byte  = 2
+	maxPayload               = 65535
+	maxPacket                = 65535
+	handshakeTimeout         = 10 * time.Second
+	tunPollInterval          = 1 * time.Second
 )
 
 type frame struct {
@@ -30,6 +31,7 @@ type frame struct {
 type packetDevice interface {
 	io.ReadWriter
 	io.Closer
+	SetReadDeadline(time.Time) error
 }
 
 func readFrame(r io.Reader) (frame, error) {
@@ -72,6 +74,8 @@ func writeFrame(w io.Writer, typ byte, payload []byte) error {
 
 func tunnelClient(conn net.Conn, tun packetDevice) {
 	defer conn.Close()
+	defer tun.SetReadDeadline(time.Now())
+
 	var writeMu sync.Mutex
 	done := make(chan struct{})
 	var once sync.Once
@@ -82,6 +86,14 @@ func tunnelClient(conn net.Conn, tun packetDevice) {
 		for {
 			n, err := tun.Read(buf)
 			if err != nil {
+				if ne, ok := err.(net.Error); ok && ne.Timeout() {
+					select {
+					case <-done:
+						return
+					default:
+						continue
+					}
+				}
 				stop()
 				return
 			}
@@ -110,22 +122,27 @@ func tunnelClient(conn net.Conn, tun packetDevice) {
 			if err != io.EOF && err != io.ErrUnexpectedEOF {
 				log.Printf("client %s: %v", conn.RemoteAddr(), err)
 			}
+			stop()
 			return
 		}
 		switch f.typ {
 		case typeIP:
 			if len(f.payload) == 0 || (f.payload[0]>>4) != 4 {
 				log.Printf("client %s: rejected non-IPv4 packet", conn.RemoteAddr())
+				stop()
 				return
 			}
 			if _, err := tun.Write(f.payload); err != nil {
 				log.Printf("client %s: TUN write: %v", conn.RemoteAddr(), err)
+				stop()
 				return
 			}
 		case typeClose:
+			stop()
 			return
 		default:
 			log.Printf("client %s: unsupported frame type %d", conn.RemoteAddr(), f.typ)
+			stop()
 			return
 		}
 	}
