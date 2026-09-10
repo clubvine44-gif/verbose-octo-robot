@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -22,11 +23,16 @@ type ifreq struct {
 	Pad   [22]byte
 }
 
-type tunDevice struct { f *os.File; name string }
+type tunDevice struct {
+	f    *os.File
+	name string
+}
 
 func openTUN(name string) (*tunDevice, error) {
 	f, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
-	if err != nil { return nil, fmt.Errorf("open /dev/net/tun: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("open /dev/net/tun: %w", err)
+	}
 	var req ifreq
 	copy(req.Name[:], name)
 	req.Flags = iffTun | iffNoPI
@@ -35,10 +41,16 @@ func openTUN(name string) (*tunDevice, error) {
 		return nil, fmt.Errorf("TUNSETIFF: %w", errno)
 	}
 	actual := string(req.Name[:])
-	for i, c := range req.Name { if c == 0 { actual = string(req.Name[:i]); break } }
+	for i, c := range req.Name {
+		if c == 0 {
+			actual = string(req.Name[:i])
+			break
+		}
+	}
 	return &tunDevice{f: f, name: actual}, nil
 }
 
 func (t *tunDevice) Read(p []byte) (int, error) { return t.f.Read(p) }
 func (t *tunDevice) Write(p []byte) (int, error) { return t.f.Write(p) }
 func (t *tunDevice) Close() error { return t.f.Close() }
+func (t *tunDevice) SetReadDeadline(deadline time.Time) error { return t.f.SetReadDeadline(deadline) }
