@@ -20,7 +20,7 @@ class MainActivity : Activity() {
     }
 
     private fun toggle() {
-        if (MayakVpnService.running) {
+        if (MayakVpnService.running.get()) {
             stopService(Intent(this, MayakVpnService::class.java))
             status.text = "Статус: выключен"
             button.text = "Запустить MAYAK"
