@@ -50,7 +50,7 @@ func openTUN(name string) (*tunDevice, error) {
 	return &tunDevice{f: f, name: actual}, nil
 }
 
-func (t *tunDevice) Read(p []byte) (int, error) { return t.f.Read(p) }
-func (t *tunDevice) Write(p []byte) (int, error) { return t.f.Write(p) }
-func (t *tunDevice) Close() error { return t.f.Close() }
+func (t *tunDevice) Read(p []byte) (int, error)               { return t.f.Read(p) }
+func (t *tunDevice) Write(p []byte) (int, error)              { return t.f.Write(p) }
+func (t *tunDevice) Close() error                             { return t.f.Close() }
 func (t *tunDevice) SetReadDeadline(deadline time.Time) error { return t.f.SetReadDeadline(deadline) }
