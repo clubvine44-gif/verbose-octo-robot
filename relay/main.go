@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	magic             uint32 = 0x4D594B31 // MYK1
-	version                  = 1
-	typeIP             byte  = 1
-	typeClose          byte  = 2
-	maxPayload               = 65535
-	maxPacket                = 65535
-	handshakeTimeout         = 10 * time.Second
+	magic            uint32 = 0x4D594B31 // MYK1
+	version                 = 1
+	typeIP           byte   = 1
+	typeClose        byte   = 2
+	maxPayload              = 65535
+	maxPacket               = 65535
+	handshakeTimeout        = 10 * time.Second
 )
 
 type frame struct {
