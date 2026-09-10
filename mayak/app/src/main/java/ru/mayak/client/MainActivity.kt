@@ -8,6 +8,8 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import ru.mayak.client.pulse.PulseClient
+import ru.mayak.client.pulse.PulseNode
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
@@ -64,23 +66,25 @@ class MainActivity : Activity() {
         val manualPort = relayPort.text.toString().trim().toIntOrNull() ?: 443
         saveSettings(manualHost, manualPort, token)
         status.text = "Поиск маршрута..."
-        statusDetail.text = "MAYAK выбирает доступную точку выхода"
+        statusDetail.text = "MAYAK проверяет доступные точки выхода"
         button.text = "Остановить"
         button.isEnabled = false
 
         executor.execute {
-            val gateway = try {
-                PulseClient.fetch(PULSE_DIRECTORY_URL).firstOrNull()
+            val node = try {
+                PulseClient(PULSE_DIRECTORY_URL).fetch()
+                    .sortedWith(compareByDescending<PulseNode> { it.weight }.thenBy { it.id })
+                    .firstOrNull()
             } catch (_: Exception) {
                 null
             }
             runOnUiThread {
                 button.isEnabled = true
-                val host = gateway?.host?.takeIf { it.isNotBlank() } ?: manualHost
-                val port = gateway?.port ?: manualPort
+                val host = node?.endpoint?.takeIf { it.isNotBlank() } ?: manualHost
+                val port = node?.port ?: manualPort
                 if (host.isBlank()) {
                     status.text = "Маршрут не найден"
-                    statusDetail.text = "Добавьте свой gateway в настройках или Pulse directory."
+                    statusDetail.text = "Нет доступной точки выхода. Настройте gateway один раз."
                     button.text = "Подключиться"
                     return@runOnUiThread
                 }
@@ -98,10 +102,6 @@ class MainActivity : Activity() {
     }
 
     private fun startVpn(host: String, port: Int, token: String) {
-        val intent = Intent(this, MayakVpnService::class.java)
-            .putExtra(MayakVpnService.EXTRA_RELAY_HOST, host)
-            .putExtra(MayakVpnService.EXTRA_RELAY_PORT, port)
-            .putExtra(MayakVpnService.EXTRA_RELAY_TOKEN, token)
         val prepareIntent = VpnService.prepare(this)
         if (prepareIntent != null) {
             pendingHost = host
@@ -109,15 +109,20 @@ class MainActivity : Activity() {
             pendingToken = token
             startActivityForResult(prepareIntent, REQUEST_VPN)
         } else {
-            startService(intent)
+            startService(vpnIntent(host, port, token))
             status.text = "Подключено"
             statusDetail.text = "Маршрут: $host:$port"
         }
     }
 
+    private fun vpnIntent(host: String, port: Int, token: String) = Intent(this, MayakVpnService::class.java)
+        .putExtra(MayakVpnService.EXTRA_RELAY_HOST, host)
+        .putExtra(MayakVpnService.EXTRA_RELAY_PORT, port)
+        .putExtra(MayakVpnService.EXTRA_RELAY_TOKEN, token)
+
     private fun renderStopped() {
         status.text = "Не подключено"
-        statusDetail.text = "Один раз настройте доступ — дальше MAYAK работает автоматически"
+        statusDetail.text = "Один раз настройте доступ — дальше MAYAK ищет маршрут автоматически"
         button.text = "Подключиться"
         button.isEnabled = true
     }
@@ -126,10 +131,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_VPN) return
         if (resultCode == RESULT_OK) {
-            startService(Intent(this, MayakVpnService::class.java)
-                .putExtra(MayakVpnService.EXTRA_RELAY_HOST, pendingHost)
-                .putExtra(MayakVpnService.EXTRA_RELAY_PORT, pendingPort)
-                .putExtra(MayakVpnService.EXTRA_RELAY_TOKEN, pendingToken))
+            startService(vpnIntent(pendingHost, pendingPort, pendingToken))
             status.text = "Подключено"
             statusDetail.text = "MAYAK использует выбранный маршрут"
         } else {
