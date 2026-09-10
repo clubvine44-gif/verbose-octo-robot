@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:padding="28dp" android:gravity="center" android:background="#101114" android:layout_width="match_parent" android:layout_height="match_parent">
+    <TextView android:text="MAYAK" android:textColor="#FFFFFF" android:textSize="38sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    <TextView android:text="Adaptive traffic router • v0.1" android:textColor="#A9ACB5" android:textSize="15sp" android:layout_marginTop="8dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    <TextView android:id="@+id/status" android:text="Статус: выключен" android:textColor="#FFFFFF" android:textSize="18sp" android:layout_marginTop="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    <Button android:id="@+id/toggle" android:text="Запустить MAYAK" android:layout_marginTop="20dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+    <TextView android:text="v0.1 перехватывает пакеты через системный VpnService и пока только считает их. Реальный relay будет добавлен после проверки TUN-слоя." android:textColor="#A9ACB5" android:textSize="14sp" android:gravity="center" android:layout_marginTop="32dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
+</LinearLayout>
