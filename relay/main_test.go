@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"net"
 	"testing"
@@ -25,11 +24,8 @@ func TestFrameRejectsBadMagic(t *testing.T) {
 }
 
 func TestFrameRejectsOversizedPayload(t *testing.T) {
-	var b bytes.Buffer
-	var h [10]byte
-	b.Write([]byte{0x4d, 0x59, 0x4b, 0x31, version, typeIP, 0, 1, 0, 0})
-	if _, err := readFrame(&b); err == nil { t.Fatal("expected oversized frame error") }
-	_ = h
+	b := bytes.NewBuffer([]byte{0x4d, 0x59, 0x4b, 0x31, version, typeIP, 0, 1, 0, 0})
+	if _, err := readFrame(b); err == nil { t.Fatal("expected oversized frame error") }
 }
 
 func TestFrameRejectsUnsupportedVersion(t *testing.T) {
@@ -59,9 +55,14 @@ func (t *fakeTUN) Write(p []byte) (int, error) {
 }
 
 func (t *fakeTUN) Close() error {
-	close(t.readCh)
+	select {
+	case <-t.readCh:
+	default:
+	}
 	return nil
 }
+
+func (t *fakeTUN) stop() { close(t.readCh) }
 
 func TestTunnelClientBridgesBothDirections(t *testing.T) {
 	client, server := net.Pipe()
@@ -92,7 +93,7 @@ func TestTunnelClientBridgesBothDirections(t *testing.T) {
 
 	if err := writeFrame(client, typeClose, nil); err != nil { t.Fatal(err) }
 	client.Close()
-	tun.Close()
+	tun.stop()
 	select {
 	case <-done:
 	case <-time.After(time.Second):
@@ -116,14 +117,5 @@ func TestTunnelClientRejectsNonIPv4(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("tunnelClient did not reject non-IPv4")
 	}
-	if !errors.Is(<-errorChannel(tun), io.EOF) {
-		// The helper is only used to ensure the fake TUN remains harmless after the test.
-	}
-	tun.Close()
-}
-
-func errorChannel(t *fakeTUN) <-chan error {
-	ch := make(chan error, 1)
-	ch <- nil
-	return ch
+	tun.stop()
 }
