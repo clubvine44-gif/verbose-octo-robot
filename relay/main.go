@@ -93,6 +93,16 @@ func loadAccessToken(path string) ([]byte, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, fmt.Errorf("-auth-token-file is required")
 	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("stat auth token file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("auth token file is not a regular file")
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		return nil, fmt.Errorf("auth token file must not be group/world accessible")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read auth token file: %w", err)
