@@ -13,6 +13,7 @@ class MainActivity : Activity() {
     private lateinit var button: Button
     private lateinit var relayHost: EditText
     private lateinit var relayPort: EditText
+    private lateinit var relayToken: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,9 +22,11 @@ class MainActivity : Activity() {
         button = findViewById(R.id.toggle)
         relayHost = findViewById(R.id.relayHost)
         relayPort = findViewById(R.id.relayPort)
+        relayToken = findViewById(R.id.relayToken)
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         relayHost.setText(prefs.getString(KEY_HOST, ""))
         relayPort.setText(prefs.getString(KEY_PORT, "443"))
+        relayToken.setText(prefs.getString(KEY_TOKEN, ""))
         button.setOnClickListener { toggle() }
     }
 
@@ -36,26 +39,32 @@ class MainActivity : Activity() {
         }
         val host = relayHost.text.toString().trim()
         val port = relayPort.text.toString().trim().toIntOrNull() ?: 443
-        if (host.isBlank() || port !in 1..65535) {
-            status.text = "Укажите корректный relay host и port"
+        val token = relayToken.text.toString().trim()
+        if (host.isBlank() || port !in 1..65535 || token.isBlank()) {
+            status.text = "Укажите relay host, port и access token"
             return
         }
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-            .putString(KEY_HOST, host).putString(KEY_PORT, port.toString()).apply()
+            .putString(KEY_HOST, host)
+            .putString(KEY_PORT, port.toString())
+            .putString(KEY_TOKEN, token)
+            .apply()
         val intent = VpnService.prepare(this)
         if (intent != null) {
             pendingHost = host
             pendingPort = port
+            pendingToken = token
             startActivityForResult(intent, REQUEST_VPN)
         } else {
-            startVpn(host, port)
+            startVpn(host, port, token)
         }
     }
 
-    private fun startVpn(host: String, port: Int) {
+    private fun startVpn(host: String, port: Int, token: String) {
         val intent = Intent(this, MayakVpnService::class.java)
             .putExtra(MayakVpnService.EXTRA_RELAY_HOST, host)
             .putExtra(MayakVpnService.EXTRA_RELAY_PORT, port)
+            .putExtra(MayakVpnService.EXTRA_RELAY_TOKEN, token)
         startService(intent)
         status.text = "Статус: подключение к relay..."
         button.text = "Остановить MAYAK"
@@ -64,7 +73,7 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_VPN && resultCode == RESULT_OK) {
-            startVpn(pendingHost, pendingPort)
+            startVpn(pendingHost, pendingPort, pendingToken)
         }
     }
 
@@ -73,7 +82,9 @@ class MainActivity : Activity() {
         private const val PREFS = "mayak"
         private const val KEY_HOST = "relay_host"
         private const val KEY_PORT = "relay_port"
+        private const val KEY_TOKEN = "relay_token"
         private var pendingHost = ""
         private var pendingPort = 443
+        private var pendingToken = ""
     }
 }
