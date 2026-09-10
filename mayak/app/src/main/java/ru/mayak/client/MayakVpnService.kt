@@ -28,7 +28,8 @@ class MayakVpnService : VpnService() {
 
         val host = intent?.getStringExtra(EXTRA_RELAY_HOST).orEmpty()
         val port = intent?.getIntExtra(EXTRA_RELAY_PORT, DEFAULT_RELAY_PORT) ?: DEFAULT_RELAY_PORT
-        if (host.isBlank()) {
+        val token = intent?.getStringExtra(EXTRA_RELAY_TOKEN).orEmpty()
+        if (host.isBlank() || token.isBlank()) {
             stopSelf(startId)
             return START_NOT_STICKY
         }
@@ -38,7 +39,7 @@ class MayakVpnService : VpnService() {
         if (vpn == null) return START_NOT_STICKY
 
         try {
-            transport = MayakTransport(host, port, protectSocket = ::protect).also { it.connect() }
+            transport = MayakTransport(host, port, token, protectSocket = ::protect).also { it.connect() }
         } catch (_: Exception) {
             transport?.close()
             transport = null
@@ -127,6 +128,7 @@ class MayakVpnService : VpnService() {
     companion object {
         const val EXTRA_RELAY_HOST = "ru.mayak.client.RELAY_HOST"
         const val EXTRA_RELAY_PORT = "ru.mayak.client.RELAY_PORT"
+        const val EXTRA_RELAY_TOKEN = "ru.mayak.client.RELAY_TOKEN"
         const val DEFAULT_RELAY_PORT = 443
         const val NOTIFICATION_ID = 701
         val running = AtomicBoolean(false)
