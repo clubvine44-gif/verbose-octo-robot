@@ -14,6 +14,7 @@ class MainActivity : Activity() {
     private lateinit var relayHost: EditText
     private lateinit var relayPort: EditText
     private lateinit var relayToken: EditText
+    private lateinit var tokenStore: TokenStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,10 +24,11 @@ class MainActivity : Activity() {
         relayHost = findViewById(R.id.relayHost)
         relayPort = findViewById(R.id.relayPort)
         relayToken = findViewById(R.id.relayToken)
+        tokenStore = TokenStore(this)
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         relayHost.setText(prefs.getString(KEY_HOST, ""))
         relayPort.setText(prefs.getString(KEY_PORT, "443"))
-        relayToken.setText(prefs.getString(KEY_TOKEN, ""))
+        relayToken.setText(tokenStore.get())
         button.setOnClickListener { toggle() }
     }
 
@@ -47,8 +49,8 @@ class MainActivity : Activity() {
         getSharedPreferences(PREFS, MODE_PRIVATE).edit()
             .putString(KEY_HOST, host)
             .putString(KEY_PORT, port.toString())
-            .putString(KEY_TOKEN, token)
             .apply()
+        tokenStore.put(token)
         val intent = VpnService.prepare(this)
         if (intent != null) {
             pendingHost = host
@@ -82,7 +84,6 @@ class MainActivity : Activity() {
         private const val PREFS = "mayak"
         private const val KEY_HOST = "relay_host"
         private const val KEY_PORT = "relay_port"
-        private const val KEY_TOKEN = "relay_token"
         private var pendingHost = ""
         private var pendingPort = 443
         private var pendingToken = ""
