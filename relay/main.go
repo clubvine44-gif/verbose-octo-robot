@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
@@ -18,11 +19,17 @@ const (
 	typeClose    byte  = 2
 	maxPayload        = 65535
 	maxPacket         = 65535
+	handshakeTimeout  = 10 * time.Second
 )
 
 type frame struct {
 	typ     byte
 	payload []byte
+}
+
+type packetDevice interface {
+	io.ReadWriter
+	io.Closer
 }
 
 func readFrame(r io.Reader) (frame, error) {
@@ -63,11 +70,7 @@ func writeFrame(w io.Writer, typ byte, payload []byte) error {
 	return err
 }
 
-// tunnelClient bridges one authenticated TLS client and the Linux TUN device.
-// v0.2 intentionally supports one active client because the Android side uses
-// a fixed tunnel address (10.7.0.2). Multi-client addressing will be added with
-// explicit per-client tunnel addresses rather than silently sharing one address.
-func tunnelClient(conn net.Conn, tun *tunDevice) {
+func tunnelClient(conn net.Conn, tun packetDevice) {
 	defer conn.Close()
 	var writeMu sync.Mutex
 	done := make(chan struct{})
@@ -164,8 +167,20 @@ func main() {
 			log.Printf("accept: %v", err)
 			continue
 		}
+		tlsConn, ok := conn.(*tls.Conn)
+		if !ok {
+			conn.Close()
+			continue
+		}
+		_ = tlsConn.SetDeadline(time.Now().Add(handshakeTimeout))
+		if err := tlsConn.Handshake(); err != nil {
+			log.Printf("TLS handshake from %s failed: %v", conn.RemoteAddr(), err)
+			conn.Close()
+			continue
+		}
+		_ = tlsConn.SetDeadline(time.Time{})
 		log.Printf("client connected: %s", conn.RemoteAddr())
-		tunnelClient(conn, tun)
+		tunnelClient(tlsConn, tun)
 		log.Printf("client disconnected: %s", conn.RemoteAddr())
 	}
 }
