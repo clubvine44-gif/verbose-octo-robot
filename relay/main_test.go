@@ -47,6 +47,47 @@ func TestFrameRejectsUnsupportedVersion(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAcceptsValidToken(t *testing.T) {
+	client, server := net.Pipe()
+	done := make(chan error, 1)
+	go func() {
+		done <- authenticate(server, []byte("secret-token"))
+		server.Close()
+	}()
+
+	if err := writeFrame(client, typeAuth, []byte("secret-token")); err != nil {
+		t.Fatal(err)
+	}
+	reply, err := readFrame(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.typ != typeAuth || !bytes.Equal(reply.payload, []byte("OK")) {
+		t.Fatalf("unexpected auth reply: type=%d payload=%q", reply.typ, reply.payload)
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	client.Close()
+}
+
+func TestAuthenticateRejectsInvalidToken(t *testing.T) {
+	client, server := net.Pipe()
+	done := make(chan error, 1)
+	go func() {
+		done <- authenticate(server, []byte("secret-token"))
+		server.Close()
+	}()
+
+	if err := writeFrame(client, typeAuth, []byte("wrong-token")); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; err == nil {
+		t.Fatal("expected authentication failure")
+	}
+	client.Close()
+}
+
 type fakeTUN struct {
 	readCh  chan []byte
 	written chan []byte
