@@ -2,7 +2,6 @@ package ru.mayak.client.transport
 
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.io.EOFException
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -12,6 +11,7 @@ object TransportFrame {
     const val VERSION: Byte = 1
     const val TYPE_IP: Byte = 1
     const val TYPE_CLOSE: Byte = 2
+    const val TYPE_AUTH: Byte = 3
     private const val MAX_PAYLOAD = 65535
 
     data class Frame(val type: Byte, val payload: ByteArray)
