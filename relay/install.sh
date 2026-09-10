@@ -17,12 +17,15 @@ INSTALL_DIR="/opt/mayak-relay"
 CONFIG_DIR="/etc/mayak"
 
 [[ -x "$BINARY" ]] || { echo "error: relay binary not found or not executable: $BINARY" >&2; exit 1; }
+[[ -f "$SCRIPT_DIR/setup-linux.sh" ]] || { echo "error: setup-linux.sh not found next to installer" >&2; exit 1; }
 
 install -d -m 0755 "$INSTALL_DIR" "$CONFIG_DIR"
 install -m 0755 "$BINARY" "$INSTALL_DIR/mayak-relay"
+install -m 0755 "$SCRIPT_DIR/setup-linux.sh" "$INSTALL_DIR/setup-linux.sh"
 install -m 0644 "$SCRIPT_DIR/mayak-relay.service" /etc/systemd/system/mayak-relay.service
 
-"$SCRIPT_DIR/setup-linux.sh" mayak0 "${UPLINK:-}"
+# Configure the TUN, forwarding and NAT before enabling the relay service.
+"$INSTALL_DIR/setup-linux.sh" mayak0 "${UPLINK:-}"
 
 systemctl daemon-reload
 systemctl enable mayak-relay
