@@ -30,6 +30,9 @@ class MayakTransport(
             raw.connect(InetSocketAddress(host, port), connectTimeoutMs)
             val supported = raw.supportedProtocols.toSet()
             raw.enabledProtocols = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }.toTypedArray()
+            raw.sslParameters = raw.sslParameters.apply {
+                endpointIdentificationAlgorithm = "HTTPS"
+            }
             raw.startHandshake()
             socket = raw
             input = raw.inputStream
