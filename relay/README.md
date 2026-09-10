@@ -24,7 +24,7 @@ Android TUN (10.7.0.2)
 
 v0.2 intentionally supports **one active client** because the Android client uses the fixed tunnel address `10.7.0.2`. IPv6 packets are rejected by the Android router and the relay accepts only IPv4 payloads.
 
-The relay validates the MAYAK magic, protocol version, frame length and packet IP version. TLS handshakes have an explicit timeout; TLS certificate and hostname verification remain the responsibility of the Android client and must not be disabled.
+The relay validates the MAYAK magic, protocol version, frame length and packet IP version. TLS handshakes have an explicit timeout; TLS certificate and hostname verification remain enabled on the Android client.
 
 ## Build
 
@@ -72,7 +72,7 @@ The installer generates a random 256-bit token automatically when `/etc/mayak/ac
 /etc/mayak/access.token
 ```
 
-Keep this value secret. Enter the generated value into the **Relay access token** field in the Android application. Never commit the token to Git.
+Keep this value secret. Enter the generated value into the **Relay access token** field in the Android application. The Android client stores the token encrypted with an Android Keystore AES-GCM key; the token is never stored as plaintext in the app's preferences. Never commit the token to Git.
 
 ## Run manually
 
@@ -121,7 +121,7 @@ journalctl -u mayak-relay -f
 
 ## Security and deployment limits
 
-- TLS certificate/hostname verification must remain enabled on Android.
+- TLS certificate and hostname verification remain enabled on Android.
 - The access token is transmitted only inside the established TLS session.
 - Only one active client is supported.
 - IPv6 is intentionally unsupported.
