@@ -11,6 +11,7 @@ import javax.net.ssl.SSLSocket
 class MayakTransport(
     private val host: String,
     private val port: Int,
+    private val authToken: String,
     private val connectTimeoutMs: Int = 10_000,
     private val protectSocket: (Socket) -> Boolean = { true }
 ) : Closeable {
@@ -21,16 +22,30 @@ class MayakTransport(
     @Synchronized
     fun connect() {
         if (socket?.isConnected == true && socket?.isClosed == false) return
+        require(authToken.isNotBlank()) { "Relay access token is required" }
         val factory = SSLContext.getDefault().socketFactory
         val raw = factory.createSocket() as SSLSocket
-        check(protectSocket(raw)) { "Relay socket could not be protected from the VPN" }
-        raw.connect(InetSocketAddress(host, port), connectTimeoutMs)
-        val supported = raw.supportedProtocols.toSet()
-        raw.enabledProtocols = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }.toTypedArray()
-        raw.startHandshake()
-        socket = raw
-        input = raw.inputStream
-        output = raw.outputStream
+        try {
+            check(protectSocket(raw)) { "Relay socket could not be protected from the VPN" }
+            raw.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            val supported = raw.supportedProtocols.toSet()
+            raw.enabledProtocols = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }.toTypedArray()
+            raw.startHandshake()
+            socket = raw
+            input = raw.inputStream
+            output = raw.outputStream
+            TransportFrame.write(raw.outputStream, TransportFrame.TYPE_AUTH, authToken.toByteArray(Charsets.UTF_8))
+            val reply = TransportFrame.read(raw.inputStream)
+            check(reply.type == TransportFrame.TYPE_AUTH && reply.payload.contentEquals(AUTH_OK)) {
+                "Relay authentication failed"
+            }
+        } catch (e: Exception) {
+            try { raw.close() } catch (_: Exception) { }
+            socket = null
+            input = null
+            output = null
+            throw e
+        }
     }
 
     @Synchronized
@@ -49,5 +64,9 @@ class MayakTransport(
         socket = null
         input = null
         output = null
+    }
+
+    companion object {
+        private val AUTH_OK = "OK".toByteArray(Charsets.UTF_8)
     }
 }
