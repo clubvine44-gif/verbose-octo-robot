@@ -24,25 +24,28 @@ class MayakTransport(
         if (socket?.isConnected == true && socket?.isClosed == false) return
         require(authToken.isNotBlank()) { "Relay access token is required" }
         val factory = SSLContext.getDefault().socketFactory
-        val raw = factory.createSocket() as SSLSocket
+        val raw = Socket()
+        var ssl: SSLSocket? = null
         try {
             check(protectSocket(raw)) { "Relay socket could not be protected from the VPN" }
             raw.connect(InetSocketAddress(host, port), connectTimeoutMs)
-            val supported = raw.supportedProtocols.toSet()
-            raw.enabledProtocols = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }.toTypedArray()
-            raw.sslParameters = raw.sslParameters.apply {
+            ssl = factory.createSocket(raw, host, port, true) as SSLSocket
+            val supported = ssl.supportedProtocols.toSet()
+            ssl.enabledProtocols = listOf("TLSv1.3", "TLSv1.2").filter { it in supported }.toTypedArray()
+            ssl.sslParameters = ssl.sslParameters.apply {
                 endpointIdentificationAlgorithm = "HTTPS"
             }
-            raw.startHandshake()
-            socket = raw
-            input = raw.inputStream
-            output = raw.outputStream
-            TransportFrame.write(raw.outputStream, TransportFrame.TYPE_AUTH, authToken.toByteArray(Charsets.UTF_8))
-            val reply = TransportFrame.read(raw.inputStream)
+            ssl.startHandshake()
+            socket = ssl
+            input = ssl.inputStream
+            output = ssl.outputStream
+            TransportFrame.write(ssl.outputStream, TransportFrame.TYPE_AUTH, authToken.toByteArray(Charsets.UTF_8))
+            val reply = TransportFrame.read(ssl.inputStream)
             check(reply.type == TransportFrame.TYPE_AUTH && reply.payload.contentEquals(AUTH_OK)) {
                 "Relay authentication failed"
             }
         } catch (e: Exception) {
+            try { ssl?.close() } catch (_: Exception) { }
             try { raw.close() } catch (_: Exception) { }
             socket = null
             input = null
