@@ -1,8 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:orientation="vertical" android:padding="28dp" android:gravity="center" android:background="#101114" android:layout_width="match_parent" android:layout_height="match_parent">
-    <TextView android:text="MAYAK" android:textColor="#FFFFFF" android:textSize="38sp" android:textStyle="bold" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    <TextView android:text="Adaptive traffic router • v0.1" android:textColor="#A9ACB5" android:textSize="15sp" android:layout_marginTop="8dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    <TextView android:id="@+id/status" android:text="Статус: выключен" android:textColor="#FFFFFF" android:textSize="18sp" android:layout_marginTop="48dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    <Button android:id="@+id/toggle" android:text="Запустить MAYAK" android:layout_marginTop="20dp" android:layout_width="wrap_content" android:layout_height="wrap_content" />
-    <TextView android:text="v0.1 перехватывает пакеты через системный VpnService и пока только считает их. Реальный relay будет добавлен после проверки TUN-слоя." android:textColor="#A9ACB5" android:textSize="14sp" android:gravity="center" android:layout_marginTop="32dp" android:layout_width="match_parent" android:layout_height="wrap_content" />
-</LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#0E1014">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MAYAK"
+            android:textColor="#F4F5F8"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Virtual Egress"
+            android:textColor="#9298A5"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="72dp"
+            android:gravity="center"
+            android:text="Не подключено"
+            android:textColor="#F4F5F8"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/statusDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Нажмите, чтобы найти маршрут"
+            android:textColor="#9298A5"
+            android:textSize="13sp" />
+
+        <Button
+            android:id="@+id/toggle"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="28dp"
+            android:background="@drawable/mayak_button"
+            android:text="Подключиться"
+            android:textAllCaps="false"
+            android:textColor="#101218"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/settingsToggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:padding="10dp"
+            android:text="Настройка доступа"
+            android:textColor="#9298A5"
+            android:textSize="13sp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <LinearLayout
+            android:id="@+id/settingsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/mayak_panel"
+            android:orientation="vertical"
+            android:padding="18dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Одноразовая настройка"
+                android:textColor="#F4F5F8"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/relayHost"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="12dp"
+                android:hint="Gateway"
+                android:inputType="textUri"
+                android:singleLine="true"
+                android:textColor="#F4F5F8"
+                android:textColorHint="#666C78" />
+
+            <EditText
+                android:id="@+id/relayPort"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:hint="Порт"
+                android:inputType="number"
+                android:text="443"
+                android:singleLine="true"
+                android:textColor="#F4F5F8"
+                android:textColorHint="#666C78" />
+
+            <EditText
+                android:id="@+id/relayToken"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:hint="Ключ доступа"
+                android:inputType="textPassword"
+                android:singleLine="true"
+                android:textColor="#F4F5F8"
+                android:textColorHint="#666C78" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="После сохранения эти поля больше не нужны: MAYAK будет искать маршрут автоматически."
+                android:textColor="#666C78"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

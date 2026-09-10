@@ -1,0 +1,23 @@
+[Unit]
+Description=MAYAK TLS relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/mayak-relay
+# Re-create the TUN address, IPv4 forwarding and NAT after reboot/network restart.
+ExecStartPre=/opt/mayak-relay/setup-linux.sh mayak0
+ExecStart=/opt/mayak-relay/mayak-relay -listen :443 -cert /etc/mayak/server.crt -key /etc/mayak/server.key -auth-token-file /etc/mayak/access.token -tun mayak0
+Restart=on-failure
+RestartSec=3
+
+# The relay creates and uses a Linux TUN device and requires network administration privileges.
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

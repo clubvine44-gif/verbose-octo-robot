@@ -2,7 +2,7 @@ name: Android build
 
 on:
   push:
-    branches: [ main, mayak-v0.1 ]
+    branches: [ main, mayak-v0.1, 'feat/**' ]
   pull_request:
 
 jobs:
