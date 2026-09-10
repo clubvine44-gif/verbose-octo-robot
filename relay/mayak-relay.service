@@ -10,7 +10,7 @@ Group=root
 WorkingDirectory=/opt/mayak-relay
 # Re-create the TUN address, IPv4 forwarding and NAT after reboot/network restart.
 ExecStartPre=/opt/mayak-relay/setup-linux.sh mayak0
-ExecStart=/opt/mayak-relay/mayak-relay -listen :443 -cert /etc/mayak/server.crt -key /etc/mayak/server.key -tun mayak0
+ExecStart=/opt/mayak-relay/mayak-relay -listen :443 -cert /etc/mayak/server.crt -key /etc/mayak/server.key -auth-token-file /etc/mayak/access.token -tun mayak0
 Restart=on-failure
 RestartSec=3
 
