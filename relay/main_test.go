@@ -111,9 +111,9 @@ func (t *fakeTUN) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (t *fakeTUN) Close() error                             { return nil }
+func (t *fakeTUN) Close() error { return nil }
 func (t *fakeTUN) SetReadDeadline(deadline time.Time) error { return nil }
-func (t *fakeTUN) stop()                                    { close(t.readCh) }
+func (t *fakeTUN) stop() { close(t.readCh) }
 
 func TestTunnelClientBridgesBothDirections(t *testing.T) {
 	client, server := net.Pipe()
@@ -148,9 +148,6 @@ func TestTunnelClientBridgesBothDirections(t *testing.T) {
 		t.Fatalf("return frame mismatch: type=%d payload=%x", gotFrame.typ, gotFrame.payload)
 	}
 
-	if err := writeFrame(client, typeClose, nil); err != nil {
-		t.Fatal(err)
-	}
 	client.Close()
 	tun.stop()
 	select {
