@@ -152,47 +152,27 @@ class MainActivity : Activity() {
     private fun render(data: List<Pair<Double,Double>>, bad: Int, count: Int) {
         if(!active) return
         val t = clock() - startTime
-        val analysis = analyze(data)
-        val unreliable = count < 40 || bad.toDouble()/count > .3 || analysis.intervals.size < 4
+        val analysis = PpgAnalyzer.analyze(data)
+        val unreliable = count < 80 || bad.toDouble()/count > .3 || analysis.quality < 60 || analysis.intervals.size < 5
         val intervals = analysis.intervals
         val rr = intervals.map { it * 1000.0 }
         val avg = if(rr.isNotEmpty()) rr.average() else 0.0
         val sdnn = if(rr.size > 2) sqrt(rr.map { (it-avg).pow(2) }.average()) else 0.0
         val diffs = rr.zipWithNext().map { (a,b) -> (a-b).pow(2) }
         val rmssd = if(diffs.size > 1) sqrt(diffs.average()) else 0.0
-        val outliers = if(avg>0) rr.count { abs(it-avg) > avg*.2 } else 0
+        val outliers = analysis.rejectedBeats
         val bpm = if(avg>0) 60000.0 / avg else 0.0
-        val label = if(unreliable) "Сигнал недостаточен для оценки" else if(outliers>0) "Есть нестандартные интервалы (не диагноз)" else "Выраженных отклонений не найдено"
+        val label = analysis.reason
         info.text = "Время: ${t.toInt()}/$duration с\n" +
             "Пульс: ${if(unreliable) "—" else String.format(Locale.US, "%.0f", bpm)} уд/мин\n" +
             "Ритм: $label\n" +
             "Последние интервалы: ${rr.takeLast(8).joinToString(" · ") { it.toInt().toString() }} мс\n" +
             "RMSSD: ${if(unreliable) "—" else String.format(Locale.US,"%.1f",rmssd)} мс; SDNN: ${if(unreliable) "—" else String.format(Locale.US,"%.1f",sdnn)} мс\n" +
-            "Качество: ${if(count==0) "—" else "${100-100*bad/count}% подходящих кадров"}\n" +
+            "Качество: ${analysis.quality}% · исключено интервалов: $outliers\n" +
             "Любые отклонения требуют подтверждения ЭКГ."
         graph.values = analysis.wave
         graph.invalidate()
         if(t>=duration) stop()
-    }
-    data class Analysis(val intervals: List<Double>, val wave: List<Double>)
-    private fun analyze(data: List<Pair<Double,Double>>): Analysis {
-        if(data.size < 35) return Analysis(emptyList(), emptyList())
-        val last = data.takeLast(2400)
-        val baseline = last.map { it.second }.average()
-        val smoothed = last.indices.map { i ->
-            val from = max(0,i-2); val to = min(last.lastIndex,i+2)
-            (from..to).map { last[it].second }.average() - baseline
-        }
-        val minV = smoothed.minOrNull() ?: 0.0
-        val maxV = smoothed.maxOrNull() ?: 0.0
-        val threshold = (maxV-minV)*.12
-        val peaks = mutableListOf<Double>()
-        for(i in 2 until smoothed.lastIndex-1) {
-            if(smoothed[i] > smoothed[i-1] && smoothed[i] >= smoothed[i+1] &&
-               smoothed[i] > threshold && (peaks.isEmpty() || last[i].first-peaks.last() >= .35))
-                peaks.add(last[i].first)
-        }
-        return Analysis(peaks.zipWithNext().map { (a,b)-> b-a }.filter { it in .35..1.8 }, smoothed.takeLast(180))
     }
     private fun stop() {
         active = false
