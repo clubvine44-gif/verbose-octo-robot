@@ -1,4 +1,4 @@
-name: PulseLens Android APK
+name: PulseLens APK
 on:
   push:
     branches: [main]
@@ -6,12 +6,12 @@ on:
       - '.github/workflows/pulselens-build.yml'
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-pulselens:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PulseLens isolated branch
+      - name: Checkout isolated source branch
         uses: actions/checkout@v4
         with:
           ref: pulselens-android
@@ -20,17 +20,29 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Install SDK
+      - name: Install Android SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build debug APK
+      - name: Build APK
         working-directory: pulselens
         run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Upload APK
+      - name: Validate output archive
+        run: |
+          test -s pulselens/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t pulselens/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: PulseLens-debug-APK
           path: pulselens/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Publish APK on GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pulselens-v0.1.0
+          name: PulseLens v0.1.0 (experimental)
+          body: "Experimental optical pulse monitor. Not an ECG or diagnostic device. APK is debug signed."
+          files: pulselens/app/build/outputs/apk/debug/app-debug.apk
+          fail_on_unmatched_files: true
