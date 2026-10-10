@@ -43,8 +43,8 @@ jobs:
       - name: Publish APK on GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: pulselens-v0.1.0
-          name: PulseLens v0.1.0 (experimental)
-          body: "Experimental optical pulse monitor. Not an ECG or diagnostic device. APK is debug signed."
+          tag_name: pulselens-v2.0.0
+          name: PulseLens v2.0.0 (experimental)
+          body: "Experimental optical pulse monitor with improved signal quality. Not an ECG or diagnostic device. APK is debug signed."
           files: pulselens/app/build/outputs/apk/debug/app-debug.apk
           fail_on_unmatched_files: true
