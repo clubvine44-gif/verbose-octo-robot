@@ -46,14 +46,20 @@ jobs:
             adb shell am start -n com.tessa.remote/.MainActivity
             sleep 12
             test -n "$(adb shell pidof com.tessa.remote)"
+            adb shell pidof com.tessa.remote > tessa-smoke/pid-before.txt
             adb exec-out screencap -p > tessa-smoke/portrait.png
             adb shell input keyevent KEYCODE_HOME
             sleep 3
             adb shell am start -n com.tessa.remote/.MainActivity
             sleep 4
             test -n "$(adb shell pidof com.tessa.remote)"
+            adb shell pidof com.tessa.remote > tessa-smoke/pid-after.txt
+            cmp -s tessa-smoke/pid-before.txt tessa-smoke/pid-after.txt
             adb exec-out screencap -p > tessa-smoke/restored.png
             adb shell input tap 70 130
+            sleep 3
+            # Android first-run immersive confirmation overlay; dismiss the native system tutorial.
+            adb shell input tap 1700 510
             sleep 3
             adb exec-out screencap -p > tessa-smoke/fullscreen.png
             adb shell input keyevent KEYCODE_BACK
@@ -61,13 +67,11 @@ jobs:
             adb exec-out screencap -p > tessa-smoke/returned.png
             adb shell dumpsys activity activities | grep 'com.tessa.remote' > tessa-smoke/activity.txt || true
             adb logcat -d -t 4000 > tessa-smoke/logcat.txt
-            if grep -A 4 'FATAL EXCEPTION' tessa-smoke/logcat.txt | grep -q 'com.tessa.remote'; then
-              echo 'TESSA crash found in logcat' >&2
-              exit 1
-            fi
+            ! grep -A 4 'FATAL EXCEPTION' tessa-smoke/logcat.txt | grep -q 'com.tessa.remote'
             test -s tessa-smoke/portrait.png
             test -s tessa-smoke/restored.png
             test -s tessa-smoke/fullscreen.png
+            python3 -c "import struct; f=open('tessa-smoke/returned.png','rb'); f.seek(16); w,h=struct.unpack('>II',f.read(8)); assert h>w, f'Expected portrait after Android Back, got {w}x{h}'"
       - name: Upload smoke screenshot and device log
         if: always()
         uses: actions/upload-artifact@v4
