@@ -100,7 +100,7 @@ class Bridge:
                 self.monitor = {k: int(monitor[k]) for k in ("top", "left", "width", "height")}
                 while not request.transport.is_closing():
                     started = time.monotonic()
-                    raw = await asyncio.to_thread(grabber.grab, monitor)
+                    raw = grabber.grab(monitor)  # mss Windows DC bound to creator thread
                     frame = Image.frombytes("RGB", raw.size, raw.rgb)
                     if frame.width > self.max_width:
                         new_size = (self.max_width, round(frame.height * self.max_width / frame.width))
@@ -152,8 +152,8 @@ class Bridge:
         KEYEVENTF_UNICODE = 0x0004
         KEYEVENTF_KEYUP = 0x0002
         # UTF-16 code units support Cyrillic and surrogate-pair characters.
-        for offset in range(0, len(text.encode("utf-16-le")), 2):
-            encoded = text.encode("utf-16-le")
+        encoded = text.encode("utf-16-le")
+        for offset in range(0, len(encoded), 2):
             unit = int.from_bytes(encoded[offset:offset + 2], "little")
             downs = INPUT(type=1, data=INPUTUNION(ki=KBDINPUT(0, unit, KEYEVENTF_UNICODE, 0, 0)))
             ups = INPUT(type=1, data=INPUTUNION(ki=KBDINPUT(0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP, 0, 0)))
