@@ -1,0 +1,4 @@
+aiohttp>=3.10,<4
+mss>=9,<11
+Pillow>=10,<12
+pyautogui>=0.9.54,<1
