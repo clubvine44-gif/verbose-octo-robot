@@ -24,6 +24,31 @@ jobs:
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
           test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify Python protocol, bridge imports and routes
+        run: |
+          python -m pip install 'aiohttp>=3.10,<4'
+          python -m compileall -q tessa/pc
+          python -m unittest discover -s tessa/pc -p 'test_*.py' -v
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'tessa/pc')
+          from server import create_app
+          app = create_app('x' * 40)
+          assert {'/ws', '/audio', '/stream', '/health'}.issubset({r.resource.canonical for r in app.router.routes()})
+          print('Bridge route contract verified')
+          PY
+      - name: Validate embedded Android JavaScript
+        run: |
+          python - <<'PY'
+          import pathlib
+          page = pathlib.Path('tessa/android/app/src/main/assets/ui.xml').read_text(encoding='utf-8')
+          assert '<script>' in page and '</script>' in page
+          pathlib.Path('/tmp/tessa-ui.js').write_text(page.split('<script>',1)[1].split('</script>',1)[0])
+          PY
+          node --check /tmp/tessa-ui.js
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
