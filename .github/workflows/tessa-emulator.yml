@@ -1,0 +1,77 @@
+name: TESSA Android emulator smoke test
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tessa-emulator.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tessa-android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compile debug APK
+        working-directory: tessa/android
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Enable emulator KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch emulator, install, verify lifecycle and UI
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: |
+            set -euxo pipefail
+            mkdir -p tessa-smoke
+            adb install -r tessa/android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n com.tessa.remote/.MainActivity
+            sleep 12
+            test -n "$(adb shell pidof com.tessa.remote)"
+            adb exec-out screencap -p > tessa-smoke/portrait.png
+            adb shell input keyevent KEYCODE_HOME
+            sleep 3
+            adb shell am start -n com.tessa.remote/.MainActivity
+            sleep 4
+            test -n "$(adb shell pidof com.tessa.remote)"
+            adb exec-out screencap -p > tessa-smoke/restored.png
+            adb shell input tap 70 130
+            sleep 3
+            adb exec-out screencap -p > tessa-smoke/fullscreen.png
+            adb shell input keyevent KEYCODE_BACK
+            sleep 3
+            adb exec-out screencap -p > tessa-smoke/returned.png
+            adb shell dumpsys activity activities | grep 'com.tessa.remote' > tessa-smoke/activity.txt || true
+            adb logcat -d -t 4000 > tessa-smoke/logcat.txt
+            if grep -A 4 'FATAL EXCEPTION' tessa-smoke/logcat.txt | grep -q 'com.tessa.remote'; then
+              echo 'TESSA crash found in logcat' >&2
+              exit 1
+            fi
+            test -s tessa-smoke/portrait.png
+            test -s tessa-smoke/restored.png
+            test -s tessa-smoke/fullscreen.png
+      - name: Upload smoke screenshot and device log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TESSA-emulator-smoke
+          path: tessa-smoke
+          if-no-files-found: warn
