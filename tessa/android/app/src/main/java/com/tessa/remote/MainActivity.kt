@@ -6,8 +6,11 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Build
 import android.content.Intent
 import android.view.View
+import android.view.WindowInsets
+import android.widget.FrameLayout
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -18,6 +21,7 @@ import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
+    private lateinit var frame: FrameLayout
     private var landscape = false
     private val micCode = 709
     private var voiceStartPending = false
@@ -35,7 +39,24 @@ class MainActivity : Activity() {
         web.webViewClient = WebViewClient()
         web.webChromeClient = WebChromeClient()
         web.addJavascriptInterface(Bridge(), "Tessa")
-        setContentView(web)
+        frame = FrameLayout(this)
+        frame.addView(web, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        // Android 15 enforces edge-to-edge for target 35. Keep the portrait
+        // header and bottom command bar clear of system status/navigation bars.
+        frame.setOnApplyWindowInsetsListener { view, insets ->
+            val top = if (Build.VERSION.SDK_INT >= 30)
+                insets.getInsets(WindowInsets.Type.statusBars()).top
+            else insets.systemWindowInsetTop
+            val bottom = if (Build.VERSION.SDK_INT >= 30)
+                insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            else insets.systemWindowInsetBottom
+            view.setPadding(0, if (landscape) 0 else top,
+                0, if (landscape) 0 else bottom)
+            insets
+        }
+        setContentView(frame)
+        frame.requestApplyInsets()
         web.loadDataWithBaseURL("file:///android_asset/", assets.open("ui.xml").bufferedReader(Charsets.UTF_8).use { it.readText() }, "text/html", "UTF-8", null)
     }
     inner class Bridge {
@@ -93,7 +114,7 @@ class MainActivity : Activity() {
     }
     private fun setFullscreen(on: Boolean) {
         landscape = on
-        requestedOrientation = if (on) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        requestedOrientation = if (on) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         if (on) {
             window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
@@ -101,6 +122,7 @@ class MainActivity : Activity() {
         } else {
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         }
+        if (::frame.isInitialized) frame.requestApplyInsets()
         web.evaluateJavascript("window.setLandscape && window.setLandscape(" + on + ")", null)
     }
     override fun onConfigurationChanged(newConfig: Configuration) {
