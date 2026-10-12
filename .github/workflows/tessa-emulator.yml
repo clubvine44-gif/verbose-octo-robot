@@ -40,7 +40,7 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           script: |
-            set -euxo pipefail
+            set -eu
             mkdir -p tessa-smoke
             adb install -r tessa/android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.tessa.remote/.MainActivity
