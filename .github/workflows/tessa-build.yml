@@ -1,0 +1,50 @@
+name: TESSA Android Preview APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tessa-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-tessa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout isolated TESSA source branch
+        uses: actions/checkout@v4
+        with:
+          ref: tessa-android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK 36
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Compile Android APK
+        working-directory: tessa/android
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Verify APK archive integrity
+        run: |
+          test -s tessa/android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -t tessa/android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload preview APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TESSA-preview-debug-APK
+          path: tessa/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Publish preview build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tessa-v0.1.0-preview
+          name: TESSA Android v0.1.0 preview
+          body: "Android preview UI and transport client. PC streaming/remote-control server and end-to-end performance remain under development. Debug-signed APK, not a production release."
+          files: tessa/android/app/build/outputs/apk/debug/app-debug.apk
+          fail_on_unmatched_files: true
