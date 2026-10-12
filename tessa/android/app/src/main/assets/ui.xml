@@ -1,0 +1,99 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><style>
+:root{--blue:#7daaff;--line:#6b94e168}*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050a18;color:#eaf2ff;font:14px 'Segoe UI',Arial,sans-serif}
+body{background:radial-gradient(ellipse at 95% 0%,#1b2f54 0%,transparent 52%),radial-gradient(ellipse at 0% 95%,#21113d 0%,transparent 48%),#040917}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+#app{height:100dvh;max-width:600px;margin:auto;padding:11px 14px 17px;display:flex;flex-direction:column;gap:11px}
+header{min-height:57px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+header .title{text-align:center;letter-spacing:7px;font-size:17px;font-weight:400}
+#conn{font-size:11px;letter-spacing:normal;color:#96accb;margin-top:7px}
+#dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#fc6885;box-shadow:0 0 7px #ff587f;margin-right:7px}
+#dot.on{background:#25f1b8;box-shadow:0 0 8px #1aebaf}
+.icon{width:39px;height:40px;border:0;background:transparent;font-size:24px;color:#c9d8ff}
+.glass{background:linear-gradient(145deg,#1c3254a8,#040b22e9);border:1px solid var(--line);border-radius:13px;box-shadow:inset 0 1px #eefaff24,0 8px 25px #0008;backdrop-filter:blur(14px)}
+#screen{width:100%;aspect-ratio:16/10;max-height:38dvh;min-height:90px;position:relative;flex-shrink:1;overflow:hidden;border:1px solid #82aefb;box-shadow:0 0 22px #527cce38;border-radius:16px;background:radial-gradient(#203659,#060e21 75%);touch-action:none}
+#screen img{width:100%;height:100%;display:block;object-fit:contain;-webkit-user-drag:none;user-select:none}
+#noVideo{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;color:#6e82a3;letter-spacing:2px;font-size:11px;pointer-events:none}#screen.ready #noVideo{display:none}
+.entry{display:flex;align-items:center;flex-shrink:0;height:49px;padding-left:15px}
+.entry input{border:0;outline:0;background:none;min-width:0;flex:1;height:100%}
+.entry input::placeholder{color:#91a5c3}
+.entry button{background:none;border:0;font-size:23px;padding:8px 14px;color:#b5cefc}
+#keys{display:grid;grid-template-columns:1fr 1.18fr 1.04fr 1.04fr 1.04fr .77fr;gap:5px;flex-shrink:0}
+#keys button{height:42px;font-size:11px;white-space:nowrap;padding:0 1px}button:active{filter:brightness(1.5)}
+#assistant{flex:1;min-height:113px;display:flex;justify-content:center;align-items:center;position:relative}
+#orb{position:relative;width:min(29vw,116px);height:min(29vw,116px);min-width:82px;min-height:82px;border-radius:50%;border:1px solid #72a5ff;background:radial-gradient(circle at 50% 42%,#1c3167,#061127 72%);box-shadow:0 0 20px #3b91ffc2,0 0 48px #694ceb70,inset 0 0 25px #293da2}
+#orb:before{content:'';position:absolute;inset:-5px;border-radius:50%;border:2px solid transparent;border-left-color:#6edaff;border-top-color:#9776ff;border-bottom-color:#4278ff;animation:rotate 9s linear infinite;box-shadow:0 0 8px #4894ff}
+#orb:after{content:'';position:absolute;inset:-15px;border:1px dotted #526de766;border-radius:50%}
+#assistant.active #orb{box-shadow:0 0 26px #5acbff,0 0 62px #7743fb,inset 0 0 36px #4661db}
+#assistant.active #orb:before{animation-duration:2s}
+@keyframes rotate{to{transform:rotate(360deg)}}
+.wave{height:32px;display:flex;align-items:center;justify-content:center;gap:3px}.wave i{background:#c5c8ff;width:3px;height:11px;box-shadow:0 0 7px #959dff;animation:wave .85s infinite alternate}.wave i:nth-child(2),.wave i:nth-child(4){height:20px;animation-delay:-.3s}.wave i:nth-child(3){height:28px;animation-delay:-.52s}
+@keyframes wave{to{transform:scaleY(.33)}}
+#orb span{font-size:10px;letter-spacing:4px;padding-left:4px}
+#toast{position:absolute;z-index:3;top:0;left:50%;opacity:0;transform:translate(-50%,10px);max-width:96%;min-width:175px;text-align:center;background:#092626f7;border:1px solid #2ce9a788;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;box-shadow:0 0 13px #09be9433;pointer-events:none;transition:.24s ease}
+#toast.show{opacity:1;transform:translate(-50%,0)}#toast.error{background:#281522f7;border-color:#f66d8a88;box-shadow:0 0 13px #ed296533}
+#modal{position:fixed;inset:0;z-index:99;background:#020611e8;backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;padding:17px}
+#modal.show{display:flex}.dialog{width:min(100%,420px);padding:25px}
+.dialog h3{font-weight:400;letter-spacing:3px;margin:0 0 20px}
+.dialog label{display:block;color:#a8bbd6;font-size:12px;margin:13px 0}
+.dialog input{display:block;width:100%;margin-top:6px;border:1px solid #59749e;border-radius:9px;background:#081123;color:#eff;padding:12px}
+.dialog button{background:#192c50;border:1px solid #5278aa;padding:11px 19px;border-radius:9px;margin-right:9px}
+#landtools{display:none}
+body.fullscreen #app{max-width:none;padding:0}
+body.fullscreen header,body.fullscreen .entry,body.fullscreen #keys,body.fullscreen #assistant{display:none}
+body.fullscreen #screen{width:100vw;height:100dvh;max-height:none;min-height:0;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none}
+body.fullscreen #landtools.visible{display:flex;position:fixed;left:50%;bottom:13px;transform:translateX(-50%);padding:8px 15px;gap:19px;border-radius:32px}
+#landtools button{border:0;background:transparent;font-size:21px}
+@media(max-height:680px){#app{gap:7px;padding-top:5px}header{min-height:45px}#screen{max-height:32dvh}#keys button{height:36px}.entry{height:42px}}
+</style></head><body>
+<div id="app"><header><button id="fullscreen" class="icon">⛶</button><div class="title">TESSA<div id="conn"><i id="dot"></i><span id="status">Нет соединения</span></div></div><button id="gear" class="icon">⚙</button></header>
+<div id="screen"><img id="video" alt="" draggable="false"><div id="noVideo">НЕТ ВИДЕОПОТОКА</div></div>
+<div class="entry glass"><input id="pcInput" placeholder="Введите текст..." spellcheck="false"><button id="sendText">➤</button></div>
+<div id="keys"><button data-key="ENTER" class="glass">Enter</button><button data-key="SPACE" class="glass">Пробел</button><button data-key="CTRL+A" class="glass">Ctrl+A</button><button data-key="CTRL+C" class="glass">Ctrl+C</button><button data-key="CTRL+V" class="glass">Ctrl+V</button><button data-key="ESC" class="glass">Esc</button></div>
+<div id="assistant"><div id="toast"></div><button id="orb"><div class="wave"><i></i><i></i><i></i><i></i><i></i></div><span>TESSA</span></button></div>
+<div class="entry glass"><input id="prompt" placeholder="Введите команду для TESSA..." spellcheck="false"><button id="sendCommand">➤</button></div></div>
+<div id="landtools" class="glass"><button id="keyboard">⌨</button><button id="escape">⎋</button><button id="return">↩</button></div>
+<div id="modal"><div class="dialog glass"><h3>TESSA / СВЯЗЬ</h3><label>Адрес компьютера<input id="host" type="url" placeholder="https://pc.example"></label><label>Ключ подключения<input id="token" type="password"></label><button id="cancel">Отмена</button><button id="save">Сохранить</button></div></div><script>
+const $=id=>document.getElementById(id),native=window.Tessa||{getConfig:()=>'{ }',saveConfig:()=>{},fullscreen:()=>{},toggleVoice:()=>false,isVoiceRunning:()=>false};
+let config={url:'http://192.168.1.2:8766',token:''},ws=null,retries=0,timer=0,toastTimer=0,connected=false;
+try{config=Object.assign(config,JSON.parse(native.getConfig()))}catch(e){}
+function flash(m,ok){const e=$('toast');e.textContent=(ok?'✓  ':'!  ')+m;e.classList.toggle('error',!ok);e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),ok?1250:3500)}window.flash=flash;
+function status(on){connected=on;$('dot').classList.toggle('on',on);$('status').textContent=on?'Подключено к ПК':'Нет соединения';if(!on){$('screen').classList.remove('ready');$('video').removeAttribute('src')}}
+function send(d){if(ws&&ws.readyState===1){ws.send(JSON.stringify(d));return true}flash('Нет соединения с ПК',false);return false}
+function stream(){if(connected)$('video').src=config.url.replace(/\/$/,'')+'/stream?token='+encodeURIComponent(config.token)+'&n='+Date.now()}
+function connect(){
+ clearTimeout(timer);if(ws){ws.onclose=null;try{ws.close()}catch(e){}}
+ if(!config.token){status(false);return}
+ try{let s=new WebSocket(config.url.replace(/^http/,'ws').replace(/\/$/,'')+'/ws?token='+encodeURIComponent(config.token));ws=s;
+ s.onopen=()=>{if(ws!==s)return;retries=0;status(true);stream()};
+ s.onmessage=e=>{let m={};try{m=JSON.parse(e.data)}catch(x){};if(m.type==='status')flash(m.message||(m.ok?'Выполнено':'Не выполнено'),!!m.ok);else if(m.type==='error')flash(m.message||'Ошибка',false);else if(m.type==='transcript'&&m.text)flash(m.text,true)};
+ s.onclose=()=>{if(ws!==s)return;status(false);timer=setTimeout(connect,Math.min(14000,800*Math.pow(1.6,++retries)))};s.onerror=()=>{};
+ }catch(e){status(false);timer=setTimeout(connect,4000)}
+}
+$('video').onload=()=>$('screen').classList.add('ready');
+$('video').onerror=()=>{if(connected)setTimeout(stream,2500)};
+function submit(id,type){let el=$(id),t=el.value;if(t.trim()&&send({type,text:t}))el.value=''}
+$('sendText').onclick=()=>submit('pcInput','text');$('sendCommand').onclick=()=>submit('prompt','command');
+['pcInput','prompt'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit(id,id==='pcInput'?'text':'command')}}));
+document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>send({type:'key',key:b.dataset.key}));
+function setMicState(on){$('assistant').classList.toggle('active',!!on)}window.setMicState=setMicState;
+$('orb').onclick=()=>{if(!config.token){flash('Укажи адрес ПК и ключ',false);return}setMicState(native.toggleVoice())};
+function setLandscape(on){document.body.classList.toggle('fullscreen',on)}window.setLandscape=setLandscape;
+$('fullscreen').onclick=()=>native.fullscreen(true);$('return').onclick=()=>native.fullscreen(false);
+$('keyboard').onclick=()=>{native.fullscreen(false);setTimeout(()=>$('pcInput').focus(),310)};
+$('escape').onclick=()=>send({type:'key',key:'ESC'});
+$('gear').onclick=()=>{$('host').value=config.url;$('token').value=config.token;$('modal').classList.add('show')};
+$('cancel').onclick=()=>$('modal').classList.remove('show');
+$('save').onclick=()=>{let url=$('host').value.trim().replace(/\/$/,'');if(!/^https?:\/\//.test(url)){flash('Укажи http:// или https://',false);return}config={url,token:$('token').value.trim()};native.saveConfig(config.url,config.token);$('modal').classList.remove('show');connect()};
+window.dismissOverlay=()=>$('modal').classList.remove('show');
+let down=false,swipe=false,long=false,sx=0,sy=0,hold=0,screen=$('screen'),img=$('video');
+function coord(e){let r=screen.getBoundingClientRect(),w=img.naturalWidth||1920,h=img.naturalHeight||1080,k=Math.min(r.width/w,r.height/h),rw=w*k,rh=h*k,x=(e.clientX-r.left-(r.width-rw)/2)/rw,y=(e.clientY-r.top-(r.height-rh)/2)/rh;return {x:Math.max(0,Math.min(1,x)),y:Math.max(0,Math.min(1,y)),valid:x>=0&&x<=1&&y>=0&&y<=1}}
+screen.addEventListener('pointerdown',e=>{if(!connected)return;down=true;swipe=false;long=false;sx=e.clientX;sy=e.clientY;let p=coord(e);hold=setTimeout(()=>{if(p.valid){send({type:'click',x:p.x,y:p.y,button:'right'});long=true}},650)});
+screen.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-sx,e.clientY-sy)>10){swipe=true;clearTimeout(hold)}});
+screen.addEventListener('pointerup',e=>{clearTimeout(hold);if(!down)return;down=false;if(!swipe&&!long){let p=coord(e);if(p.valid)send({type:'click',x:p.x,y:p.y,button:'left'})}});
+screen.addEventListener('pointercancel',()=>{down=false;clearTimeout(hold)});
+screen.addEventListener('touchstart',e=>{if(document.body.classList.contains('fullscreen')&&e.touches.length===2){$('landtools').classList.add('visible');setTimeout(()=>$('landtools').classList.remove('visible'),2300)}},{passive:true});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&(!ws||ws.readyState!==1))connect()});
+setInterval(()=>{if(connected&&ws?.readyState===1)ws.send(JSON.stringify({type:'ping'}))},15000);
+try{setMicState(native.isVoiceRunning())}catch(e){}connect();
+</script></body></html>
