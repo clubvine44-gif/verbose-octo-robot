@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Build
 import android.content.Intent
 import android.view.View
+import android.view.HapticFeedbackConstants
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.view.WindowManager
@@ -80,6 +81,11 @@ class MainActivity : Activity() {
         web.loadDataWithBaseURL("file:///android_asset/", assets.open("ui.xml").bufferedReader(Charsets.UTF_8).use { it.readText() }, "text/html", "UTF-8", null)
     }
     inner class Bridge {
+        @JavascriptInterface fun haptic() {
+            runOnUiThread {
+                if (::web.isInitialized) web.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            }
+        }
         @JavascriptInterface fun getConfig(): String {
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
             return JSONObject().put("url", prefs.getString("url", "http://100.98.213.115:18766"))
