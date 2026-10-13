@@ -17,11 +17,14 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
     private lateinit var frame: FrameLayout
+    private var systemBackCallback: OnBackInvokedCallback? = null
     private var landscape = false
     private val micCode = 709
     private var voiceStartPending = false
@@ -57,6 +60,12 @@ class MainActivity : Activity() {
         }
         setContentView(frame)
         frame.requestApplyInsets()
+        if (Build.VERSION.SDK_INT >= 33) {
+            systemBackCallback = OnBackInvokedCallback { handleBackPressed() }
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback!!
+            )
+        }
         web.loadDataWithBaseURL("file:///android_asset/", assets.open("ui.xml").bufferedReader(Charsets.UTF_8).use { it.readText() }, "text/html", "UTF-8", null)
     }
     inner class Bridge {
@@ -142,10 +151,13 @@ class MainActivity : Activity() {
         if (::web.isInitialized) web.onPause()
         super.onPause()
     }
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
+    private fun handleBackPressed() {
         if (landscape) { setFullscreen(false); return }
         web.evaluateJavascript("window.dismissOverlay && window.dismissOverlay()", null)
+    }
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        handleBackPressed()
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -156,6 +168,7 @@ class MainActivity : Activity() {
         }
     }
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33) systemBackCallback?.let { onBackInvokedDispatcher.unregisterOnBackInvokedCallback(it) }
         web.destroy()
         super.onDestroy()
     }
