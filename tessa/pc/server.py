@@ -13,6 +13,9 @@ import secrets
 import sys
 import time
 import threading
+import ipaddress
+import shutil
+import subprocess
 import wave
 from pathlib import Path
 from typing import Any
@@ -23,6 +26,32 @@ from protocol import key_sequence, normalized_point
 BASE = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".config")) / "TESSA"
 TOKEN_PATH = BASE / "mobile-bridge.token"
 PORT = 18766
+
+
+def preferred_listen_address() -> str:
+    """Bind Tailscale only if available; never expose on all interfaces."""
+    executable = shutil.which("tailscale")
+    if not executable and os.name == "nt":
+        candidate = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Tailscale" / "tailscale.exe"
+        if candidate.is_file():
+            executable = str(candidate)
+    if executable:
+        try:
+            found = subprocess.run(
+                [executable, "ip", "-4"], capture_output=True,
+                text=True, timeout=3, check=True, creationflags=(0x08000000 if os.name == "nt" else 0),
+            )
+            tailnet = ipaddress.IPv4Network("100.64.0.0/10")
+            for line in found.stdout.splitlines():
+                try:
+                    addr = ipaddress.IPv4Address(line.strip())
+                    if addr in tailnet:
+                        return str(addr)
+                except ipaddress.AddressValueError:
+                    continue
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return "127.0.0.1"
 
 
 def pcm_rms(data: bytes) -> int:
@@ -438,15 +467,16 @@ def create_app(token: str, fps: int = 15) -> web.Application:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="TESSA Android private Windows bridge")
-    parser.add_argument("--bind", default="127.0.0.1")
+    parser.add_argument("--bind", default=None, help="Private listen address; defaults to Tailscale or localhost")
     parser.add_argument("--port", type=int, default=PORT)
     parser.add_argument("--fps", type=int, default=15)
     options = parser.parse_args()
     token = load_token()
+    bind = options.bind or preferred_listen_address()
     print("TESSA mobile bridge starting. Token path:", TOKEN_PATH)
-    print("Bind address:", options.bind, "Port:", options.port)
+    print("Bind address:", bind, "Port:", options.port)
     print("Use LAN/Tailscale ONLY, never forward this port publicly.")
-    web.run_app(create_app(token, options.fps), host=options.bind, port=options.port, access_log=None)
+    web.run_app(create_app(token, options.fps), host=bind, port=options.port, access_log=None)
 
 
 if __name__ == "__main__":
