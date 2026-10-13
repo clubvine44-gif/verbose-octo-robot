@@ -22,7 +22,7 @@ from protocol import key_sequence, normalized_point
 
 BASE = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".config")) / "TESSA"
 TOKEN_PATH = BASE / "mobile-bridge.token"
-PORT = 8766
+PORT = 18766
 
 
 def pcm_rms(data: bytes) -> int:
