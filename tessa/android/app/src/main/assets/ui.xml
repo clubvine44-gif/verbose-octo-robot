@@ -36,6 +36,10 @@ header{height:53px;flex:0 0 53px;display:flex;align-items:center;justify-content
 #noVideo strong{font-size:11px;font-weight:500;letter-spacing:2.2px;color:#a7c4d9}
 #noVideo small{font-size:10px;color:#7d9ab0}
 #screen.ready #noVideo{display:none}
+#screen.disconnected.ready #noVideo{display:flex;background:rgba(4,12,22,.62)}
+#screen.disconnected.ready img{opacity:.35}
+#screen.disconnected .screen-indicator{color:#d19bad}
+#screen.disconnected .indicator-dot{background:#d4748a}
 .screen-bottom{position:absolute;z-index:4;bottom:12px;left:18px;right:18px;pointer-events:none;display:flex;justify-content:space-between;color:#81a2b9;font-size:9px;letter-spacing:.8px}
 #screen.ready .screen-bottom{opacity:.5}
 #leaveFull{display:none;position:absolute;top:17px;left:17px;z-index:9;width:42px;height:42px;border-radius:13px;color:#cceafc;border:1px solid #a9d2e581;background:linear-gradient(145deg,#23435acb,#091c2ccf);box-shadow:0 8px 20px #000a,inset 0 1px #e6fcff22}
@@ -146,23 +150,67 @@ body.fullscreen #landtools.visible{position:fixed;z-index:5;display:flex;left:50
 <div id="modal"><div class="dialog"><div class="dialog-eyebrow">TESSA / CONNECTION</div><h3>Подключение к ПК</h3><p>Используй Tailscale или доверенную локальную сеть. Не открывай порт управления в интернет. Адрес и ключ сохраняются на устройстве.</p><label>АДРЕС КОМПЬЮТЕРА<input id="host" type="url" placeholder="http://100.x.x.x:18766" autocomplete="off" spellcheck="false"></label><label>КЛЮЧ ПОДКЛЮЧЕНИЯ<input id="token" type="password" placeholder="Персональный ключ" autocomplete="off"></label><div class="actions"><button id="cancel">Отмена</button><button id="save">Сохранить</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id),native=window.Tessa||{getConfig:()=>'{ }',saveConfig:()=>{},fullscreen:()=>{},toggleVoice:()=>false,isVoiceRunning:()=>false};
-let config={url:'http://100.98.213.115:18766',token:''},ws=null,retries=0,timer=0,toastTimer=0,connected=false;
+let config={url:'http://100.98.213.115:18766',token:''},ws=null,retries=0,timer=0,toastTimer=0,connected=false,activeUrl='',dialGeneration=0;
 try{config=Object.assign(config,JSON.parse(native.getConfig()))}catch(e){}
 function flash(m,ok){const e=$('toast');e.textContent=(ok?'✓  ':'!  ')+m;e.classList.toggle('error',!ok);e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),ok?1250:3500)}window.flash=flash;
-function status(on){connected=on;$('dot').classList.toggle('on',on);$('status').textContent=on?'ПК подключён':'Нет соединения';if(!on){$('screen').classList.remove('ready');$('video').removeAttribute('src')}}
-function send(d){if(ws&&ws.readyState===1){ws.send(JSON.stringify(d));return true}flash('Нет соединения с ПК',false);return false}
-function stream(){if(connected)$('video').src=config.url.replace(/\/$/,'')+'/stream?token='+encodeURIComponent(config.token)+'&n='+Date.now()}
-function connect(){
- clearTimeout(timer);if(ws){ws.onclose=null;try{ws.close()}catch(e){}}
+function status(on){connected=on;$('dot').classList.toggle('on',on);$('status').textContent=on?(activeUrl.indexOf('127.0.0.1')>=0?'USB · ПК подключён':'ПК подключён'):'Нет соединения';$('screen').classList.toggle('disconnected',!on)}
+function send(d){if(ws&&ws.readyState===1){try{ws.send(JSON.stringify(d));return true}catch(e){}}flash('Нет соединения с ПК',false);return false}
+function stream(){if(connected&&activeUrl)$('video').src=activeUrl.replace(/\/$/,'')+'/stream?token='+encodeURIComponent(config.token)+'&n='+Date.now()}
+async function trustedUsb(){
+ if(!config.token||typeof native.signChallenge!=='function')return false;
+ const nonce=(Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2)).slice(0,23);
+ const abort=new AbortController(),deadline=setTimeout(()=>abort.abort(),1600);
+ try{
+  const r=await fetch('http://127.0.0.1:18766/probe?nonce='+nonce,{method:'GET',cache:'no-store',signal:abort.signal});
+  if(!r.ok)return false;
+  const d=await r.json();
+  const expected=native.signChallenge(nonce);
+  return d.bridge==='TESSA_BRIDGE_1'&&typeof d.proof==='string'&&expected.length===64&&d.proof===expected;
+ }catch(e){return false}finally{clearTimeout(deadline)}
+}
+async function connect(){
+ const gen=++dialGeneration;
+ clearTimeout(timer);
+ if(ws){ws.onclose=null;try{ws.close()}catch(e){}}
+ ws=null;
  if(!config.token){status(false);return}
- try{let s=new WebSocket(config.url.replace(/^http/,'ws').replace(/\/$/,'')+'/ws?token='+encodeURIComponent(config.token));ws=s;
- s.onopen=()=>{if(ws!==s)return;retries=0;status(true);stream()};
- s.onmessage=e=>{let m={};try{m=JSON.parse(e.data)}catch(x){};if(m.type==='status')flash(m.message||(m.ok?'Выполнено':'Не выполнено'),!!m.ok);else if(m.type==='error')flash(m.message||'Ошибка',false);else if(m.type==='transcript'&&m.text)flash(m.text,true)};
- s.onclose=()=>{if(ws!==s)return;status(false);timer=setTimeout(connect,Math.min(14000,800*Math.pow(1.6,++retries)))};s.onerror=()=>{};
- }catch(e){status(false);timer=setTimeout(connect,4000)}
+ const endpoints=[];
+ if(await trustedUsb())endpoints.push('http://127.0.0.1:18766');
+ if(config.url)endpoints.push(config.url);
+ if(gen!==dialGeneration)return;
+ const routes=[...new Set(endpoints)];
+ const advance=i=>{
+  if(gen!==dialGeneration)return;
+  if(i>=routes.length){status(false);timer=setTimeout(connect,Math.min(14000,900*Math.pow(1.55,++retries)));return}
+  const url=routes[i].replace(/\/$/,'');
+  let sock=null,opened=false,closing=false;
+  try{sock=new WebSocket(url.replace(/^http/,'ws')+'/ws?token='+encodeURIComponent(config.token))}catch(e){advance(i+1);return}
+  ws=sock;
+  const timeout=setTimeout(()=>{if(!opened&&!closing&&gen===dialGeneration){closing=true;sock.onclose=null;try{sock.close()}catch(e){}advance(i+1)}},2800);
+  sock.onopen=()=>{
+    if(gen!==dialGeneration||ws!==sock){clearTimeout(timeout);try{sock.close()}catch(e){}return}
+    opened=true;clearTimeout(timeout);retries=0;activeUrl=url;
+    try{native.setActiveEndpoint&&native.setActiveEndpoint(url)}catch(e){}
+    status(true);stream()
+  };
+  sock.onmessage=e=>{
+    let m={};try{m=JSON.parse(e.data)}catch(x){}
+    if(m.type==='status')flash(m.message||(m.ok?'Выполнено':'Не выполнено'),!!m.ok);
+    else if(m.type==='error')flash(m.message||'Ошибка',false);
+    else if(m.type==='transcript'&&m.text)flash(m.text,true);
+  };
+  sock.onclose=()=>{
+    clearTimeout(timeout);
+    if(gen!==dialGeneration||closing)return;
+    if(!opened){closing=true;advance(i+1)}
+    else{status(false);timer=setTimeout(connect,Math.min(14000,900*Math.pow(1.55,++retries)))}
+  };
+  sock.onerror=()=>{};
+ };
+ advance(0)
 }
 $('video').onload=()=>$('screen').classList.add('ready');
-$('video').onerror=()=>{if(connected)setTimeout(stream,2500)};
+$('video').onerror=()=>{if(connected)setTimeout(stream,3000)};
 function submit(id,type){let el=$(id),t=el.value;if(t.trim()&&send({type,text:t}))el.value=''}
 $('sendText').onclick=()=>submit('pcInput','text');$('sendCommand').onclick=()=>submit('prompt','command');
 ['pcInput','prompt'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit(id,id==='pcInput'?'text':'command')}}));
