@@ -68,8 +68,8 @@ jobs:
       - name: Publish preview build
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: tessa-v0.1.5-preview
-          name: TESSA Android v0.1.5 preview
+          tag_name: tessa-v0.1.6-preview
+          name: TESSA Android v0.1.6 preview
           body: "Animated sculptural glass UI, real Android layout diagnostics, isolated transport integration tests; Android preview UI and transport client. PC streaming/remote-control server and end-to-end performance remain under development. Debug-signed APK, not a production release."
           files: tessa/android/app/build/outputs/apk/debug/app-debug.apk
           fail_on_unmatched_files: true
