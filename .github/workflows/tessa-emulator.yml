@@ -30,6 +30,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Install visual regression dependency
+        run: python3 -m pip install --quiet pillow
       - name: Launch emulator, install, verify lifecycle and UI
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -56,6 +58,18 @@ jobs:
             adb shell pidof com.tessa.remote > tessa-smoke/pid-after.txt
             cmp -s tessa-smoke/pid-before.txt tessa-smoke/pid-after.txt
             adb exec-out screencap -p > tessa-smoke/restored.png
+            # No Android OEM gray/opaque bars on dark glass surface.
+            python3 -c "from PIL import Image; i=Image.open('tessa-smoke/restored.png').convert('RGB'); w,h=i.size; t=i.getpixel((w//2,18)); b=i.getpixel((w//5,h-18)); print('status pixel',t,'navigation pixel',b); assert max(t)-min(t)>3 and max(b)-min(b)>3, f'opaque gray system bars still present: {t} {b}'"
+            # Repeated background/foreground transitions must not restart the process.
+            adb shell input keyevent KEYCODE_HOME
+            sleep 2
+            adb shell am start -n com.tessa.remote/.MainActivity
+            sleep 2
+            adb shell pidof com.tessa.remote > tessa-smoke/pid-third.txt
+            cmp -s tessa-smoke/pid-before.txt tessa-smoke/pid-third.txt
+            adb shell input tap 540 1460
+            sleep 1
+            adb exec-out screencap -p > tessa-smoke/orb-tap.png
             adb shell input tap 70 180
             sleep 3
             # Android first-run immersive confirmation overlay; dismiss the native system tutorial.
