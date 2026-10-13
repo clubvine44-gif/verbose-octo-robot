@@ -1,6 +1,9 @@
 """Fast isolated tests for the mobile bridge's public wire contract."""
 from __future__ import annotations
 import struct
+import sys
+import types
+from unittest.mock import patch
 import unittest
 from aiohttp.test_utils import TestClient, TestServer
 from server import create_app, pcm_rms
@@ -49,6 +52,36 @@ class WebsocketContractTests(unittest.IsolatedAsyncioTestCase):
             msg = await ws.receive_json(timeout=3)
             self.assertEqual(msg["type"], "status")
             self.assertFalse(msg["ok"])
+
+    async def test_video_capture_does_not_block_control_ping(self):
+        class FakeRaw:
+            size = (64, 36)
+            rgb = bytes([20, 35, 58]) * (64 * 36)
+
+        class FakeMSS:
+            def __init__(self):
+                self.monitors = [None, {"left": 0, "top": 0, "width": 64, "height": 36}]
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc, tb):
+                return False
+            def grab(self, monitor):
+                return FakeRaw()
+
+        module = types.ModuleType("mss")
+        module.mss = FakeMSS
+        with patch.dict(sys.modules, {"mss": module}):
+            stream = await self.client.get("/stream?token=" + TOKEN)
+            self.assertEqual(stream.status, 200)
+            self.assertIn("multipart/x-mixed-replace", stream.headers.get("Content-Type", ""))
+            sample = await stream.content.read(400)
+            self.assertIn(b"--frame", sample)
+            self.assertIn(b"image/jpeg", sample)
+            async with self.client.ws_connect("/ws?token=" + TOKEN) as ws:
+                self.assertEqual((await ws.receive_json(timeout=2))["type"], "hello")
+                await ws.send_json({"type": "ping"})
+                self.assertEqual((await ws.receive_json(timeout=2))["type"], "pong")
+            stream.close()
 
     async def test_unauthorized_websocket(self):
         resp = await self.client.get("/ws?token=bad")
