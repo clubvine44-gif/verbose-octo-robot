@@ -11,6 +11,7 @@ import os
 import secrets
 import sys
 import time
+import threading
 import wave
 from pathlib import Path
 from typing import Any
@@ -77,6 +78,12 @@ class Bridge:
             self.clients.discard(ws)
 
     async def stream(self, request: web.Request) -> web.StreamResponse:
+        """Frame producer is isolated from the asyncio control/audio loop.
+
+        Only the freshest complete JPEG is sent; slow phones never accumulate a
+        delayed backlog. MSS creates and uses its Windows capture context in
+        the same OS thread to avoid cross-thread GDI failures.
+        """
         if not verify(request):
             return denied()
         try:
@@ -88,36 +95,72 @@ class Bridge:
             status=200,
             headers={
                 "Content-Type": "multipart/x-mixed-replace; boundary=frame",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Cache-Control": "no-store, max-age=0",
                 "Pragma": "no-cache",
                 "X-Content-Type-Options": "nosniff",
+                "Connection": "keep-alive",
             },
         )
         await response.prepare(request)
+        frames: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=1)
+        stop = threading.Event()
+        loop = asyncio.get_running_loop()
+
+        def newest(blob: bytes | None) -> None:
+            if stop.is_set():
+                return
+            try:
+                if frames.full():
+                    frames.get_nowait()
+                frames.put_nowait(blob)
+            except (asyncio.QueueEmpty, asyncio.QueueFull):
+                pass
+
+        def producer() -> None:
+            try:
+                with mss.mss() as grabber:
+                    monitor = grabber.monitors[1]
+                    self.monitor = {k: int(monitor[k]) for k in ("top", "left", "width", "height")}
+                    while not stop.is_set():
+                        started = time.monotonic()
+                        raw = grabber.grab(monitor)
+                        frame = Image.frombytes("RGB", raw.size, raw.rgb)
+                        if frame.width > self.max_width:
+                            width = self.max_width
+                            height = max(1, round(frame.height * width / frame.width))
+                            frame = frame.resize((width, height), Image.Resampling.BILINEAR)
+                        output = io.BytesIO()
+                        frame.save(output, "JPEG", quality=72, optimize=False)
+                        loop.call_soon_threadsafe(newest, output.getvalue())
+                        stop.wait(max(0.0, 1.0 / self.fps - (time.monotonic() - started)))
+            except Exception as exc:
+                print("capture_failure:", type(exc).__name__, str(exc), file=sys.stderr)
+            finally:
+                try:
+                    loop.call_soon_threadsafe(newest, None)
+                except RuntimeError:
+                    pass
+
+        thread = threading.Thread(target=producer, name="TessaDesktopCapture", daemon=True)
+        thread.start()
         try:
-            with mss.mss() as grabber:
-                monitor = grabber.monitors[1]  # Primary physical display
-                self.monitor = {k: int(monitor[k]) for k in ("top", "left", "width", "height")}
-                while not request.transport.is_closing():
-                    started = time.monotonic()
-                    raw = grabber.grab(monitor)  # mss Windows DC bound to creator thread
-                    frame = Image.frombytes("RGB", raw.size, raw.rgb)
-                    if frame.width > self.max_width:
-                        new_size = (self.max_width, round(frame.height * self.max_width / frame.width))
-                        frame = frame.resize(new_size, Image.Resampling.BILINEAR)
-                    buffer = io.BytesIO()
-                    frame.save(buffer, format="JPEG", quality=72, optimize=False)
-                    blob = buffer.getvalue()
-                    await response.write(
-                        b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                        + str(len(blob)).encode("ascii")
-                        + b"\r\n\r\n" + blob + b"\r\n"
-                    )
-                    await asyncio.sleep(max(0, 1 / self.fps - (time.monotonic() - started)))
-        except (ConnectionResetError, asyncio.CancelledError, BrokenPipeError):
+            while request.transport is not None and not request.transport.is_closing():
+                try:
+                    blob = await asyncio.wait_for(frames.get(), timeout=8)
+                except asyncio.TimeoutError:
+                    break
+                if blob is None:
+                    break
+                await response.write(
+                    b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                    + str(len(blob)).encode("ascii")
+                    + b"\r\n\r\n" + blob + b"\r\n"
+                )
+        except (ConnectionError, ConnectionResetError, asyncio.CancelledError, BrokenPipeError):
             pass
-        except Exception as exc:
-            print("stream_failure:", type(exc).__name__, str(exc), file=sys.stderr)
+        finally:
+            stop.set()
+            await asyncio.to_thread(thread.join, 1.5)
         return response
 
     @staticmethod
