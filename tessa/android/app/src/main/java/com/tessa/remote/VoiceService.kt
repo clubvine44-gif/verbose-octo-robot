@@ -61,27 +61,63 @@ class VoiceService : Service() {
             val bytes = ByteArray(2048)
             var backoff = 500L
             while (active.get()) {
-                var connected = false
+                val opened = AtomicBoolean(false)
+                val failed = AtomicBoolean(false)
                 var ws: WebSocket? = null
                 try {
-                    val endpoint = base.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://").trimEnd('/') + "/audio?token=" +
+                    val endpoint = base.replaceFirst("https://", "wss://")
+                        .replaceFirst("http://", "ws://").trimEnd('/') + "/audio?token=" +
                         java.net.URLEncoder.encode(token, "UTF-8")
                     ws = client.newWebSocket(Request.Builder().url(endpoint).build(), object: WebSocketListener() {
-                        override fun onOpen(webSocket: WebSocket, response: Response) {}
-                        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {}
+                        override fun onOpen(webSocket: WebSocket, response: Response) {
+                            opened.set(true)
+                        }
+                        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                            failed.set(true)
+                        }
+                        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                            failed.set(true)
+                        }
+                        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                            failed.set(true)
+                        }
                     })
                     socket = ws
+                    // Drain the microphone until the WebSocket is really open, but
+                    // never queue raw PCM during a failed connection.
+                    val openDeadline = SystemClock.elapsedRealtime() + 7000L
+                    while (active.get() && !opened.get() && !failed.get() &&
+                           SystemClock.elapsedRealtime() < openDeadline) {
+                        rec.read(bytes, 0, bytes.size, AudioRecord.READ_BLOCKING)
+                    }
+                    if (!opened.get() || failed.get()) throw IllegalStateException("Audio transport unavailable")
                     backoff = 500L
-                    // Read continuously. Audio is intentionally sent even between utterances:
-                    // STT server is responsible for VAD / decoding commands.
-                    var lost = 0
-                    while (active.get() && lost < 50) {
+                    var dropped = 0
+                    while (active.get() && !failed.get() && dropped < 35) {
                         val n = rec.read(bytes, 0, bytes.size, AudioRecord.READ_BLOCKING)
                         if (n > 0) {
-                            if (ws.send(bytes.copyOf(n).toByteString())) lost = 0 else lost++
-                        } else lost++
+                            // Drop stale chunks instead of building seconds of lag.
+                            if (ws.queueSize() > 192 * 1024 || !ws.send(bytes.copyOf(n).toByteString())) {
+                                dropped++
+                            } else {
+                                dropped = 0
+                            }
+                        } else if (n < 0) {
+                            throw IllegalStateException("AudioRecord read failed: " + n)
+                        }
                     }
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    // Network can disappear; foreground recording stays on and retries.
+                } finally {
+                    ws?.close(1000, "reconnect")
+                    socket = null
+                }
+                if (active.get()) {
+                    SystemClock.sleep(backoff)
+                    backoff = (backoff * 2).coerceAtMost(12000)
+                }
+            }
+        } catch (_: Exception) {}
                 finally { ws?.close(1000, "reconnect"); socket = null }
                 if (active.get()) {
                     SystemClock.sleep(backoff)
