@@ -28,6 +28,7 @@ from protocol import key_sequence, normalized_point
 BASE = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".config")) / "TESSA"
 TOKEN_PATH = BASE / "mobile-bridge.token"
 PORT = 18766
+DEFAULT_VOSK_RU = BASE / "models" / "vosk-model-small-ru-0.22"
 
 
 def preferred_listen_address() -> str:
@@ -172,6 +173,7 @@ class Bridge:
         self.recognition = asyncio.Lock()
         self.monitor: dict[str, int] | None = None
         self.max_width = 1280
+        self._vosk_model: Any = None
 
     async def notify(self, payload: dict[str, Any]) -> None:
         dead = []
@@ -437,8 +439,39 @@ class Bridge:
         except Exception:
             return None
 
+    def offline_transcript(self, pcm: bytes) -> str | None:
+        """Use a locally installed Russian Vosk model, never the internet.
+
+        None = offline model unavailable; an empty string = available model
+        decoded silence/noise. The model is cached, and recognition is run in
+        an executor under the existing serial recognition lock.
+        """
+        model_dir = Path(os.environ.get("TESSA_VOSK_MODEL", str(DEFAULT_VOSK_RU)))
+        if not model_dir.is_dir():
+            return None
+        try:
+            from vosk import KaldiRecognizer, Model, SetLogLevel
+            if self._vosk_model is None:
+                SetLogLevel(-1)
+                self._vosk_model = Model(str(model_dir))
+            recognizer = KaldiRecognizer(self._vosk_model, 16000)
+            recognizer.AcceptWaveform(pcm)
+            payload = json.loads(recognizer.FinalResult())
+            return str(payload.get("text", "")).strip()
+        except ImportError:
+            return None
+        except Exception as exc:
+            print("offline_stt_failure:", type(exc).__name__, str(exc)[:100], file=sys.stderr)
+            return None
+
     async def recognize(self, pcm: bytes) -> None:
         async with self.recognition:
+            offline = await asyncio.to_thread(self.offline_transcript, pcm)
+            if offline is not None:
+                if len(offline) >= 2:
+                    await self.notify({"type": "transcript", "text": offline})
+                    await self.tessa_command(offline)
+                return
             key = await asyncio.to_thread(self.groq_key)
             if not key:
                 await self.notify({"type": "status", "ok": False,
