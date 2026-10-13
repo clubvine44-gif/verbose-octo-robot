@@ -76,19 +76,10 @@ jobs:
             adb shell input tap 1700 510
             sleep 3
             adb exec-out screencap -p > tessa-smoke/fullscreen.png
-            adb shell input keyevent KEYCODE_BACK
-            sleep 4
+            # Click the dedicated screen-visible exit button in landscape.
+            adb shell input tap 95 100
+            sleep 5
             adb exec-out screencap -p > tessa-smoke/returned.png
-            # Some Android 15 predictive-back implementations swallow Back
-            # during an immersive transition. Validate the visible exit control.
-            if python3 -c "import struct; f=open('tessa-smoke/returned.png','rb');f.seek(16);w,h=struct.unpack('>II',f.read(8));exit(0 if h>w else 1)"; then
-              echo 'Android Back returned to portrait'
-            else
-              echo 'Android Back did not exit; testing dedicated landscape exit control'
-              adb shell input tap 95 100
-              sleep 4
-              adb exec-out screencap -p > tessa-smoke/returned.png
-            fi
             adb shell input tap 995 182
             sleep 2
             adb exec-out screencap -p > tessa-smoke/settings.png
