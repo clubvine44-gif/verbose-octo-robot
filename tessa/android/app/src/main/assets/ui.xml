@@ -38,6 +38,10 @@ header{height:53px;flex:0 0 53px;display:flex;align-items:center;justify-content
 #screen.ready #noVideo{display:none}
 .screen-bottom{position:absolute;z-index:4;bottom:12px;left:18px;right:18px;pointer-events:none;display:flex;justify-content:space-between;color:#81a2b9;font-size:9px;letter-spacing:.8px}
 #screen.ready .screen-bottom{opacity:.5}
+#leaveFull{display:none;position:absolute;top:17px;left:17px;z-index:9;width:42px;height:42px;border-radius:13px;color:#cceafc;border:1px solid #a9d2e581;background:linear-gradient(145deg,#23435acb,#091c2ccf);box-shadow:0 8px 20px #000a,inset 0 1px #e6fcff22}
+#leaveFull:active{background:#315d70e6}
+#orb.tapped{animation:orb-tap .26s ease-out}
+@keyframes orb-tap{40%{transform:scale(.93)}100%{transform:scale(1)}}
 .glass-field{min-height:48px;height:48px;flex:0 0 48px;border-radius:14px;display:flex;align-items:center;gap:11px;overflow:hidden;padding:0 6px 0 15px}
 .field-icon{width:16px;height:16px;color:#8eb4cf;opacity:.83}
 .glass-field input{background:none;border:0;outline:none;flex:1;min-width:0;font-size:12px;font-weight:400;letter-spacing:.05px;caret-color:#8ce5e0;height:100%;padding:0}
@@ -96,6 +100,7 @@ body.fullscreen{background:#000}
 body.fullscreen #app{max-width:none;height:100dvh;padding:0;gap:0}
 body.fullscreen header,body.fullscreen .glass-field,body.fullscreen #keys,body.fullscreen #assistant{display:none}
 body.fullscreen #screen{width:100vw;height:100dvh;max-height:none;min-height:0;flex:1;aspect-ratio:auto;border:0;border-radius:0;box-shadow:none}
+body.fullscreen #leaveFull{display:flex}
 body.fullscreen #screen::before,body.fullscreen #screen::after,body.fullscreen #screen .screen-hud,body.fullscreen #screen .screen-bottom{display:none}
 body.fullscreen #landtools.visible{position:fixed;z-index:5;display:flex;left:50%;bottom:15px;transform:translateX(-50%);padding:8px 15px;gap:16px;border-radius:32px;background:#13283bef}
 #landtools button{background:none;color:#c0eaff;font-size:21px;border:0}
@@ -110,6 +115,7 @@ body.fullscreen #landtools.visible{position:fixed;z-index:5;display:flex;left:50
  <div class="header-side"><button class="header-control" id="gear" title="Настройки соединения" aria-label="Настройки"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15l1.2 1-2 3.5-1.5-.6a9.7 9.7 0 0 1-2.1 1.2l-.3 1.7h-4l-.4-1.7a9 9 0 0 1-2.1-1.2l-1.5.6-2-3.5 1.2-1a8 8 0 0 1 0-2.5l-1.2-1 2-3.5 1.5.6a9 9 0 0 1 2.1-1.2l.4-1.7h4l.3 1.7a9.7 9.7 0 0 1 2.1 1.2l1.5-.6 2 3.5-1.2 1a8 8 0 0 1 0 2.5z" transform="translate(0 -1.5) scale(.92) translate(1.05 1.05)"/></svg></button></div>
 </header>
 <div id="screen" aria-label="Экран компьютера">
+ <button id="leaveFull" type="button" aria-label="Закрыть полноэкранный режим"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M19 12H5m6-6-6 6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
  <img id="video" alt="" draggable="false">
  <div class="screen-grid"></div>
  <div class="screen-hud"><span class="kicker">DESKTOP / LIVE</span><span class="screen-indicator"><i class="indicator-dot"></i>PC LINK</span></div>
@@ -164,7 +170,7 @@ document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>send({type:'key
 function setMicState(on){$('assistant').classList.toggle('active',!!on);$('orbState').textContent=on?'Слушаю · нажми для остановки':'Нажми, чтобы активировать'}window.setMicState=setMicState;
 $('orb').onclick=()=>{if(!config.token){$('orb').classList.add('tapped');setTimeout(()=>$('orb').classList.remove('tapped'),240);flash('Открой настройки и введи ключ',false);return}setMicState(native.toggleVoice())};
 function setLandscape(on){document.body.classList.toggle('fullscreen',on)}window.setLandscape=setLandscape;
-$('fullscreen').onclick=()=>native.fullscreen(true);$('return').onclick=()=>native.fullscreen(false);
+$('fullscreen').onclick=()=>native.fullscreen(true);$('leaveFull').onclick=()=>native.fullscreen(false);$('return').onclick=()=>native.fullscreen(false);
 $('keyboard').onclick=()=>{native.fullscreen(false);setTimeout(()=>$('pcInput').focus(),310)};
 $('escape').onclick=()=>send({type:'key',key:'ESC'});
 $('gear').onclick=()=>{$('host').value=config.url;$('token').value=config.token;$('modal').classList.add('show')};
