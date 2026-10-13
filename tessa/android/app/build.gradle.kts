@@ -12,6 +12,15 @@ android {
         versionCode = 4
         versionName = "0.1.3"
     }
+    buildTypes {
+        getByName("debug") {
+            // Allows QA versions to coexist with previously installed
+            // debug APKs signed by GitHub's ephemeral build key.
+            if (providers.gradleProperty("tessaUsbQA").orNull == "true") {
+                applicationIdSuffix = ".qa13"
+            }
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
