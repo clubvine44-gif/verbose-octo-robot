@@ -18,6 +18,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.graphics.Color
+import android.util.Log
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
@@ -41,7 +42,7 @@ class MainActivity : Activity() {
             (View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
              or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
         web = WebView(this)
-        web.setBackgroundColor(android.graphics.Color.rgb(5, 10, 23))
+        web.setBackgroundColor(Color.rgb(5, 11, 20))
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.cacheMode = WebSettings.LOAD_DEFAULT
@@ -51,6 +52,7 @@ class MainActivity : Activity() {
                 super.onPageFinished(view, url)
                 publishSafeArea()
                 updateMic(VoiceService.running)
+                verifyLayout()
             }
         }
         web.webChromeClient = WebChromeClient()
@@ -128,6 +130,34 @@ class MainActivity : Activity() {
     private fun showToast(msg: String, ok: Boolean) {
         runOnUiThread { web.evaluateJavascript("window.flash && window.flash(" + JSONObject.quote(msg) + "," + ok + ")", null) }
     }
+    private fun verifyLayout() {
+        // Read-only diagnostics to detect clipped controls and lost orbital
+        // animations on physical Android hardware after an install.
+        if (!BuildConfig.DEBUG || !::web.isInitialized) return
+        val js = """
+            (function() {
+              const r = id => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const b=el.getBoundingClientRect();
+                return {x:Math.round(b.x),y:Math.round(b.y),w:Math.round(b.width),h:Math.round(b.height)};
+              };
+              return JSON.stringify({
+                viewport:[innerWidth,innerHeight],
+                screen:r('screen'),
+                orb:r('orb'),
+                command:r('prompt'),
+                animation:getComputedStyle(document.querySelector('.orbit.a')).animationName,
+                pixelRatio:devicePixelRatio,
+                overflowX:document.documentElement.scrollWidth>innerWidth,
+                overflowY:document.documentElement.scrollHeight>innerHeight
+              });
+            })()
+        """.trimIndent()
+        web.evaluateJavascript(js) { value ->
+            Log.i("TESSA_LAYOUT", (value ?: "null").take(1000))
+        }
+    }
     @Suppress("DEPRECATION")
     private fun publishSafeArea(insets: android.view.WindowInsets? = if (::frame.isInitialized) frame.rootWindowInsets else null) {
         if (!::web.isInitialized || insets == null) return
@@ -185,7 +215,10 @@ class MainActivity : Activity() {
         super.onPause()
     }
     private fun handleBackPressed() {
-        if (landscape) { setFullscreen(false); return }
+        if (landscape) {
+            setFullscreen(false)
+            return
+        }
         web.evaluateJavascript("window.dismissOverlay && window.dismissOverlay()", null)
     }
     @Deprecated("Deprecated in Java")
