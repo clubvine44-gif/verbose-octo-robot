@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import audioop
+import math
+from array import array
 import hmac
 import io
 import json
@@ -22,6 +23,17 @@ from protocol import key_sequence, normalized_point
 BASE = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / ".config")) / "TESSA"
 TOKEN_PATH = BASE / "mobile-bridge.token"
 PORT = 8766
+
+
+def pcm_rms(data: bytes) -> int:
+    """RMS of signed little-endian 16-bit PCM; compatible with Python 3.13+."""
+    if not data or len(data) % 2:
+        return 0
+    values = array("h")
+    values.frombytes(data)
+    if sys.byteorder != "little":
+        values.byteswap()
+    return math.isqrt(sum(int(v) * int(v) for v in values) // len(values))
 
 
 def load_token() -> str:
@@ -378,7 +390,7 @@ class Bridge:
                 if len(pcm) % 2 or not pcm or len(pcm) > 8192:
                     continue
                 duration_ms = round(len(pcm) / (16000 * 2) * 1000)
-                rms = audioop.rms(pcm, 2)
+                rms = pcm_rms(pcm)
                 talking = rms > max(400, background * 2.8)
                 if not talking:
                     background = .99 * background + .01 * rms
