@@ -80,7 +80,7 @@ class MainActivity : Activity() {
     inner class Bridge {
         @JavascriptInterface fun getConfig(): String {
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-            return JSONObject().put("url", prefs.getString("url", "http://192.168.1.2:8766"))
+            return JSONObject().put("url", prefs.getString("url", "http://100.98.213.115:18766"))
                 .put("token", prefs.getString("token", "")).toString()
         }
         @JavascriptInterface fun saveConfig(url: String, token: String) {
