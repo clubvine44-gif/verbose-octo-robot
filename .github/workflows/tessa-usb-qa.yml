@@ -29,12 +29,12 @@ jobs:
           APK=tessa/android/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           unzip -t "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | grep "com.tessa.remote.qa15"
-          cp "$APK" TESSA-0.1.5-USB-QA.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | grep "com.tessa.remote.qa16"
+          cp "$APK" TESSA-0.1.6-USB-QA.apk
       - uses: actions/upload-artifact@v4
         with:
           name: TESSA-Android-USB-QA
-          path: TESSA-0.1.5-USB-QA.apk
+          path: TESSA-0.1.6-USB-QA.apk
           if-no-files-found: error
       - name: Render UI layout snapshots
         run: |
@@ -50,8 +50,8 @@ jobs:
           if-no-files-found: warn
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: tessa-v0.1.5-usb-qa
-          name: TESSA v0.1.5 USB QA
-          body: "USB development build with isolated package com.tessa.remote.qa15. Can be installed alongside incompatible older debug builds. Not production. Video and voice end-to-end functionality require a running authenticated Windows bridge."
-          files: TESSA-0.1.5-USB-QA.apk
+          tag_name: tessa-v0.1.6-usb-qa
+          name: TESSA v0.1.6 USB QA
+          body: "USB development build with isolated package com.tessa.remote.qa16. Can be installed alongside incompatible older debug builds. Not production. Video and voice end-to-end functionality require a running authenticated Windows bridge."
+          files: TESSA-0.1.6-USB-QA.apk
           fail_on_unmatched_files: true
