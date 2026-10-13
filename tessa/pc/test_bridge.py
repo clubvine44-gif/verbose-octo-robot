@@ -17,7 +17,7 @@ class AudioMathTests(unittest.TestCase):
 
     def test_empty_and_odd_bytes(self):
         self.assertEqual(pcm_rms(b""), 0)
-        self.assertEqual(pcm_rms(b"\\x7f"), 0)
+        self.assertEqual(pcm_rms(bytes([127])), 0)
 
 
 class WebsocketContractTests(unittest.IsolatedAsyncioTestCase):
