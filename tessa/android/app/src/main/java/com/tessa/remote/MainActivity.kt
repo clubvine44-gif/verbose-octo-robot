@@ -17,6 +17,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.graphics.Color
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
@@ -31,31 +32,37 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        window.statusBarColor = android.graphics.Color.rgb(5, 10, 23)
-        window.navigationBarColor = android.graphics.Color.rgb(5, 10, 23)
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
+        if (Build.VERSION.SDK_INT >= 30) window.setDecorFitsSystemWindows(false)
+        window.decorView.systemUiVisibility =
+            (View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+             or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
         web = WebView(this)
         web.setBackgroundColor(android.graphics.Color.rgb(5, 10, 23))
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.cacheMode = WebSettings.LOAD_DEFAULT
         web.settings.mediaPlaybackRequiresUserGesture = false
-        web.webViewClient = WebViewClient()
+        web.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                publishSafeArea()
+                updateMic(VoiceService.running)
+            }
+        }
         web.webChromeClient = WebChromeClient()
         web.addJavascriptInterface(Bridge(), "Tessa")
         frame = FrameLayout(this)
+        frame.setBackgroundColor(Color.rgb(7, 12, 24))
         frame.addView(web, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         // Android 15 enforces edge-to-edge for target 35. Keep the portrait
         // header and bottom command bar clear of system status/navigation bars.
-        frame.setOnApplyWindowInsetsListener { view, insets ->
-            val top = if (Build.VERSION.SDK_INT >= 30)
-                insets.getInsets(WindowInsets.Type.statusBars()).top
-            else insets.systemWindowInsetTop
-            val bottom = if (Build.VERSION.SDK_INT >= 30)
-                insets.getInsets(WindowInsets.Type.navigationBars()).bottom
-            else insets.systemWindowInsetBottom
-            view.setPadding(0, if (landscape) 0 else top,
-                0, if (landscape) 0 else bottom)
+        frame.setOnApplyWindowInsetsListener { _, insets ->
+            publishSafeArea(insets)
             insets
         }
         setContentView(frame)
@@ -121,6 +128,28 @@ class MainActivity : Activity() {
     private fun showToast(msg: String, ok: Boolean) {
         runOnUiThread { web.evaluateJavascript("window.flash && window.flash(" + JSONObject.quote(msg) + "," + ok + ")", null) }
     }
+    @Suppress("DEPRECATION")
+    private fun publishSafeArea(insets: android.view.WindowInsets? = if (::frame.isInitialized) frame.rootWindowInsets else null) {
+        if (!::web.isInitialized || insets == null) return
+        val top: Int
+        val bottom: Int
+        if (Build.VERSION.SDK_INT >= 30) {
+            top = insets.getInsets(WindowInsets.Type.statusBars()).top
+            bottom = insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+        } else {
+            top = insets.systemWindowInsetTop
+            bottom = insets.systemWindowInsetBottom
+        }
+        val density = resources.displayMetrics.density
+        val topDp = if (landscape) 0 else (top / density).toInt()
+        val bottomDp = if (landscape) 0 else (bottom / density).toInt()
+        web.post {
+            web.evaluateJavascript(
+                "document.documentElement.style.setProperty('--safe-top','" + topDp + "px');" +
+                "document.documentElement.style.setProperty('--safe-bottom','" + bottomDp + "px');", null
+            )
+        }
+    }
     private fun setFullscreen(on: Boolean) {
         landscape = on
         requestedOrientation = if (on) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -129,9 +158,14 @@ class MainActivity : Activity() {
                 or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
         } else {
-            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            window.decorView.systemUiVisibility =
+                (View.SYSTEM_UI_FLAG_LAYOUT_STABLE or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
         }
-        if (::frame.isInitialized) frame.requestApplyInsets()
+        if (::frame.isInitialized) {
+            frame.requestApplyInsets()
+            publishSafeArea()
+        }
         web.evaluateJavascript("window.setLandscape && window.setLandscape(" + on + ")", null)
     }
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -143,12 +177,11 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (::web.isInitialized) {
-            web.onResume()
             updateMic(VoiceService.running)
         }
     }
     override fun onPause() {
-        if (::web.isInitialized) web.onPause()
+        // Keep the single WebView, its compositor and JS connection intact.
         super.onPause()
     }
     private fun handleBackPressed() {
