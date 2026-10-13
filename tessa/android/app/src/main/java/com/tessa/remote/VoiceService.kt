@@ -117,15 +117,9 @@ class VoiceService : Service() {
                     backoff = (backoff * 2).coerceAtMost(12000)
                 }
             }
-        } catch (_: Exception) {}
-                finally { ws?.close(1000, "reconnect"); socket = null }
-                if (active.get()) {
-                    SystemClock.sleep(backoff)
-                    backoff = (backoff * 2).coerceAtMost(8000)
-                }
-            }
-        } catch (_: Exception) {}
-        finally {
+        } catch (_: Exception) {
+            // AudioRecord permission or hardware failure; safely release.
+        } finally {
             try { recorder?.stop() } catch (_: Exception) {}
             recorder?.release()
             recorder = null
