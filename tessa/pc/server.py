@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import re
 import asyncio
 import math
 from array import array
@@ -65,6 +67,47 @@ def pcm_rms(data: bytes) -> int:
     return math.isqrt(sum(int(v) * int(v) for v in values) // len(values))
 
 
+
+def adb_executable() -> str | None:
+    candidate = shutil.which("adb")
+    if candidate:
+        return candidate
+    if os.name == "nt":
+        path = Path("G:/AndroidDev/Sdk/platform-tools/adb.exe")
+        if path.is_file():
+            return str(path)
+    return None
+
+
+def configure_usb_reverse(port: int) -> bool:
+    """Opt-in USB ADB tunnel for the one authorized physical handset.
+
+    This forwards the handset's localhost port to the PC's localhost port;
+    it does not open Windows inbound firewall ports or the public internet.
+    """
+    executable = adb_executable()
+    if not executable:
+        return False
+    try:
+        devices = subprocess.run([executable, "devices"],
+                                 capture_output=True, text=True, timeout=4, check=True)
+        online = []
+        for line in devices.stdout.splitlines():
+            fields = line.split()
+            if len(fields) >= 2 and fields[1] == "device":
+                online.append(fields[0])
+        if len(online) != 1:
+            return False
+        serial = online[0]
+        reverse = subprocess.run(
+            [executable, "-s", serial, "reverse", f"tcp:{port}", f"tcp:{port}"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return reverse.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def load_token() -> str:
     BASE.mkdir(parents=True, exist_ok=True)
     if not TOKEN_PATH.exists():
@@ -82,6 +125,28 @@ def verify(request: web.Request) -> bool:
     given = request.query.get("token", "")
     actual = request.app["token"]
     return bool(given) and hmac.compare_digest(actual, given)
+
+
+
+async def usb_proof(request: web.Request) -> web.Response:
+    """Unauthenticated HMAC challenge, no token transmitted by the app.
+
+    Browser only submits the bearer token after verifying the proof with a
+    keyed digest computed inside the trusted Android bridge.
+    """
+    nonce = request.query.get("nonce", "")
+    if not re.fullmatch(r"[A-Za-z0-9_-]{12,64}", nonce):
+        return web.Response(status=400, text="Invalid challenge")
+    token = request.app["token"]
+    digest = hmac.new(token.encode("utf-8"), nonce.encode("ascii"), hashlib.sha256).hexdigest()
+    return web.json_response(
+        {"bridge": "TESSA_BRIDGE_1", "proof": digest},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 def denied() -> web.Response:
@@ -462,6 +527,7 @@ def create_app(token: str, fps: int = 15) -> web.Application:
     app.router.add_get("/audio", engine.audio)
     app.router.add_get("/stream", engine.stream)
     app.router.add_get("/health", engine.health)
+    app.router.add_get("/probe", usb_proof)
     return app
 
 
@@ -474,9 +540,16 @@ def main() -> None:
     token = load_token()
     bind = options.bind or preferred_listen_address()
     print("TESSA mobile bridge starting. Token path:", TOKEN_PATH)
-    print("Bind address:", bind, "Port:", options.port)
+    hosts = list(dict.fromkeys([bind, "127.0.0.1"]))
+    print("Bind address:", ", ".join(hosts), "Port:", options.port)
     print("Use LAN/Tailscale ONLY, never forward this port publicly.")
-    web.run_app(create_app(token, options.fps), host=bind, port=options.port, access_log=None)
+    def usb_watch() -> None:
+        while True:
+            if configure_usb_reverse(options.port):
+                print("USB ADB reverse ready for TCP port", options.port)
+            time.sleep(18)
+    threading.Thread(target=usb_watch, name="TessaUsbReverse", daemon=True).start()
+    web.run_app(create_app(token, options.fps), host=hosts, port=options.port, access_log=None)
 
 
 if __name__ == "__main__":
