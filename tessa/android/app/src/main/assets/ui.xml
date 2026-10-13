@@ -123,7 +123,7 @@ body.fullscreen #landtools.visible{position:fixed;z-index:5;display:flex;left:50
   <div class="screen-mark"><svg width="58" height="47" viewBox="0 0 58 47" fill="none" stroke-width="1.25" stroke-linecap="round"><rect x="6" y="5" width="46" height="30" rx="5"/><path d="M23 42h12M29 35v7M16 14h26M16 20h17"/></svg></div>
   <strong>ОЖИДАНИЕ ЭКРАНА</strong><small>Подключи TESSA к компьютеру</small>
  </div>
- <div class="screen-bottom"><span>SECURE REMOTE VIEW</span><span>16:10 · TOUCH</span></div>
+ <div class="screen-bottom"><span>PRIVATE REMOTE VIEW</span><span>16:10 · TOUCH</span></div>
 </div>
 <div class="glass-field glass"><svg class="field-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3" width="17" height="12" rx="2"/><path d="M6 18h8M10 15v3"/></svg><input id="pcInput" placeholder="Ввести текст на компьютере" spellcheck="false" autocomplete="off"><button class="submit" id="sendText" aria-label="Отправить текст"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12h15m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
 <div id="keys">
@@ -143,7 +143,7 @@ body.fullscreen #landtools.visible{position:fixed;z-index:5;display:flex;left:50
 <div class="glass-field glass"><svg class="field-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5h14v9H8l-4.5 3v-3H3z"/><path d="M6 8h8M6 10.5h5"/></svg><input id="prompt" placeholder="Команда для TESSA..." spellcheck="false" autocomplete="off"><button class="submit" id="sendCommand" aria-label="Отправить команду"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12h15m-6-6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
 </div>
 <div id="landtools" class="glass"><button id="keyboard" aria-label="Клавиатура">⌨</button><button id="escape" aria-label="Escape">⎋</button><button id="return" aria-label="Назад">↩</button></div>
-<div id="modal"><div class="dialog"><div class="dialog-eyebrow">TESSA / CONNECTION</div><h3>Подключение к ПК</h3><p>Защищённый канал управления через Tailscale или локальную сеть. Адрес и ключ сохраняются на устройстве.</p><label>АДРЕС КОМПЬЮТЕРА<input id="host" type="url" placeholder="http://100.x.x.x:18766" autocomplete="off" spellcheck="false"></label><label>КЛЮЧ ПОДКЛЮЧЕНИЯ<input id="token" type="password" placeholder="Персональный ключ" autocomplete="off"></label><div class="actions"><button id="cancel">Отмена</button><button id="save">Сохранить</button></div></div></div>
+<div id="modal"><div class="dialog"><div class="dialog-eyebrow">TESSA / CONNECTION</div><h3>Подключение к ПК</h3><p>Используй Tailscale или доверенную локальную сеть. Не открывай порт управления в интернет. Адрес и ключ сохраняются на устройстве.</p><label>АДРЕС КОМПЬЮТЕРА<input id="host" type="url" placeholder="http://100.x.x.x:18766" autocomplete="off" spellcheck="false"></label><label>КЛЮЧ ПОДКЛЮЧЕНИЯ<input id="token" type="password" placeholder="Персональный ключ" autocomplete="off"></label><div class="actions"><button id="cancel">Отмена</button><button id="save">Сохранить</button></div></div></div>
 <script>
 const $=id=>document.getElementById(id),native=window.Tessa||{getConfig:()=>'{ }',saveConfig:()=>{},fullscreen:()=>{},toggleVoice:()=>false,isVoiceRunning:()=>false};
 let config={url:'http://100.98.213.115:18766',token:''},ws=null,retries=0,timer=0,toastTimer=0,connected=false;
