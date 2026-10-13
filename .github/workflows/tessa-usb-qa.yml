@@ -29,17 +29,29 @@ jobs:
           APK=tessa/android/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           unzip -t "$APK"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | grep "com.tessa.remote.qa13"
-          cp "$APK" TESSA-0.1.3-USB-QA.apk
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | head -1 | grep "com.tessa.remote.qa14"
+          cp "$APK" TESSA-0.1.4-USB-QA.apk
       - uses: actions/upload-artifact@v4
         with:
           name: TESSA-Android-USB-QA
-          path: TESSA-0.1.3-USB-QA.apk
+          path: TESSA-0.1.4-USB-QA.apk
           if-no-files-found: error
+      - name: Render UI layout snapshots
+        run: |
+          set -e
+          mkdir -p tessa-visual
+          cp tessa/android/app/src/main/assets/ui.xml tessa-visual/preview.html
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=390,850 --screenshot=tessa-visual/phone-390x850.png "file://$(pwd)/tessa-visual/preview.html" >/dev/null 2>&1 || true
+          google-chrome --headless=new --no-sandbox --disable-dev-shm-usage --hide-scrollbars --window-size=360,740 --screenshot=tessa-visual/phone-360x740.png "file://$(pwd)/tessa-visual/preview.html" >/dev/null 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TESSA-UI-visual-regression
+          path: tessa-visual
+          if-no-files-found: warn
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: tessa-v0.1.3-usb-qa
-          name: TESSA v0.1.3 USB QA
-          body: "USB development build with isolated package com.tessa.remote.qa13. Can be installed alongside incompatible older debug builds. Not production. Video and voice end-to-end functionality require a running authenticated Windows bridge."
-          files: TESSA-0.1.3-USB-QA.apk
+          tag_name: tessa-v0.1.4-usb-qa
+          name: TESSA v0.1.4 USB QA
+          body: "USB development build with isolated package com.tessa.remote.qa14. Can be installed alongside incompatible older debug builds. Not production. Video and voice end-to-end functionality require a running authenticated Windows bridge."
+          files: TESSA-0.1.4-USB-QA.apk
           fail_on_unmatched_files: true
