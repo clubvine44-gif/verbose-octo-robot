@@ -44,6 +44,7 @@ jobs:
           script: |
             set -eu
             mkdir -p tessa-smoke
+            echo 'TESSA 0.1.6 offline USB bridge client lifecycle regression'
             adb install -r tessa/android/app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -n com.tessa.remote/.MainActivity
             sleep 12
