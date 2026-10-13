@@ -133,7 +133,7 @@ class MainActivity : Activity() {
     private fun verifyLayout() {
         // Read-only diagnostics to detect clipped controls and lost orbital
         // animations on physical Android hardware after an install.
-        if (!BuildConfig.DEBUG || !::web.isInitialized) return
+        if (!::web.isInitialized || applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return
         val js = """
             (function() {
               const r = id => {
