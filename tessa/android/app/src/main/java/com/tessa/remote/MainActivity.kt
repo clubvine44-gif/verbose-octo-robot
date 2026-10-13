@@ -22,6 +22,8 @@ import android.util.Log
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import org.json.JSONObject
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 class MainActivity : Activity() {
     private lateinit var web: WebView
@@ -86,7 +88,26 @@ class MainActivity : Activity() {
         @JavascriptInterface fun saveConfig(url: String, token: String) {
             val safe = url.trim().trimEnd('/')
             if (!safe.startsWith("http://") && !safe.startsWith("https://")) return
-            getSharedPreferences("settings", MODE_PRIVATE).edit().putString("url", safe).putString("token", token).apply()
+            getSharedPreferences("settings", MODE_PRIVATE).edit()
+                .putString("url", safe).putString("token", token)
+                .remove("active_endpoint").apply()
+        }
+        @JavascriptInterface fun signChallenge(nonce: String): String {
+            if (!Regex("[A-Za-z0-9_-]{12,64}").matches(nonce)) return ""
+            val token = getSharedPreferences("settings", MODE_PRIVATE).getString("token", "").orEmpty()
+            if (token.length < 20) return ""
+            return try {
+                val mac = Mac.getInstance("HmacSHA256")
+                mac.init(SecretKeySpec(token.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+                mac.doFinal(nonce.toByteArray(Charsets.US_ASCII))
+                    .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            } catch (_: Exception) { "" }
+        }
+        @JavascriptInterface fun setActiveEndpoint(value: String) {
+            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+            val configured = prefs.getString("url", "").orEmpty()
+            if (value != configured && value != "http://127.0.0.1:18766") return
+            prefs.edit().putString("active_endpoint", value).apply()
         }
         @JavascriptInterface fun fullscreen(enabled: Boolean) {
             runOnUiThread { setFullscreen(enabled) }
@@ -109,7 +130,9 @@ class MainActivity : Activity() {
     }
     private fun startVoice() {
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-        val url = prefs.getString("url", "") ?: ""
+        val configured = prefs.getString("url", "") ?: ""
+        val recent = prefs.getString("active_endpoint", "").orEmpty()
+        val url = if (recent == configured || recent == "http://127.0.0.1:18766") recent else configured
         val token = prefs.getString("token", "") ?: ""
         if (url.isBlank() || token.isBlank()) {
             showToast("Сначала укажи адрес ПК и ключ", false)
