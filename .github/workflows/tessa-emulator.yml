@@ -63,7 +63,7 @@ jobs:
             sleep 3
             adb exec-out screencap -p > tessa-smoke/fullscreen.png
             adb shell input keyevent KEYCODE_BACK
-            sleep 3
+            sleep 5
             adb exec-out screencap -p > tessa-smoke/returned.png
             adb shell dumpsys activity activities | grep 'com.tessa.remote' > tessa-smoke/activity.txt || true
             adb logcat -d -t 4000 > tessa-smoke/logcat.txt
