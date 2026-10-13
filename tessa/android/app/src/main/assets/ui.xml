@@ -154,6 +154,7 @@ let config={url:'http://100.98.213.115:18766',token:''},ws=null,retries=0,timer=
 try{config=Object.assign(config,JSON.parse(native.getConfig()))}catch(e){}
 function flash(m,ok){const e=$('toast');e.textContent=(ok?'✓  ':'!  ')+m;e.classList.toggle('error',!ok);e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),ok?1250:3500)}window.flash=flash;
 function status(on){connected=on;$('dot').classList.toggle('on',on);$('status').textContent=on?(activeUrl.indexOf('127.0.0.1')>=0?'USB · ПК подключён':'ПК подключён'):'Нет соединения';$('screen').classList.toggle('disconnected',!on)}
+function haptic(){try{if(native.haptic)native.haptic()}catch(e){}}
 function send(d){if(ws&&ws.readyState===1){try{ws.send(JSON.stringify(d));return true}catch(e){}}flash('Нет соединения с ПК',false);return false}
 function stream(){if(connected&&activeUrl)$('video').src=activeUrl.replace(/\/$/,'')+'/stream?token='+encodeURIComponent(config.token)+'&n='+Date.now()}
 async function trustedUsb(){
@@ -214,14 +215,14 @@ $('video').onerror=()=>{if(connected)setTimeout(stream,3000)};
 function submit(id,type){let el=$(id),t=el.value;if(t.trim()&&send({type,text:t}))el.value=''}
 $('sendText').onclick=()=>submit('pcInput','text');$('sendCommand').onclick=()=>submit('prompt','command');
 ['pcInput','prompt'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit(id,id==='pcInput'?'text':'command')}}));
-document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>send({type:'key',key:b.dataset.key}));
+document.querySelectorAll('[data-key]').forEach(b=>b.onclick=()=>{haptic();send({type:'key',key:b.dataset.key})});
 function setMicState(on){$('assistant').classList.toggle('active',!!on);$('orbState').textContent=on?'Слушаю · нажми для остановки':'Нажми, чтобы активировать'}window.setMicState=setMicState;
-$('orb').onclick=()=>{if(!config.token){$('orb').classList.add('tapped');setTimeout(()=>$('orb').classList.remove('tapped'),240);flash('Открой настройки и введи ключ',false);return}setMicState(native.toggleVoice())};
+$('orb').onclick=()=>{haptic();if(!config.token){$('orb').classList.add('tapped');setTimeout(()=>$('orb').classList.remove('tapped'),240);flash('Открой настройки и введи ключ',false);return}setMicState(native.toggleVoice())};
 function setLandscape(on){document.body.classList.toggle('fullscreen',on)}window.setLandscape=setLandscape;
-$('fullscreen').onclick=()=>native.fullscreen(true);$('leaveFull').onclick=()=>native.fullscreen(false);$('return').onclick=()=>native.fullscreen(false);
+$('fullscreen').onclick=()=>{haptic();native.fullscreen(true)};$('leaveFull').onclick=()=>native.fullscreen(false);$('return').onclick=()=>native.fullscreen(false);
 $('keyboard').onclick=()=>{native.fullscreen(false);setTimeout(()=>$('pcInput').focus(),310)};
 $('escape').onclick=()=>send({type:'key',key:'ESC'});
-$('gear').onclick=()=>{$('host').value=config.url;$('token').value=config.token;$('modal').classList.add('show')};
+$('gear').onclick=()=>{haptic();$('host').value=config.url;$('token').value=config.token;$('modal').classList.add('show')};
 $('cancel').onclick=()=>$('modal').classList.remove('show');
 $('save').onclick=()=>{let url=$('host').value.trim().replace(/\/$/,'');if(!/^https?:\/\//.test(url)){flash('Укажи http:// или https://',false);return}config={url,token:$('token').value.trim()};native.saveConfig(config.url,config.token);$('modal').classList.remove('show');connect()};
 window.dismissOverlay=()=>{if($('modal').classList.contains('show')){$('modal').classList.remove('show');return true}return false};
