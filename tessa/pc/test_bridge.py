@@ -1,6 +1,8 @@
 """Fast isolated tests for the mobile bridge's public wire contract."""
 from __future__ import annotations
 import struct
+import hashlib
+import hmac
 import sys
 import types
 from unittest.mock import patch
@@ -52,6 +54,21 @@ class WebsocketContractTests(unittest.IsolatedAsyncioTestCase):
             msg = await ws.receive_json(timeout=3)
             self.assertEqual(msg["type"], "status")
             self.assertFalse(msg["ok"])
+
+    async def test_usb_proof_is_keyed_and_does_not_expose_token(self):
+        nonce = "pairingnonce0123456789"
+        response = await self.client.get("/probe?nonce=" + nonce)
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
+        payload = await response.json()
+        self.assertEqual(payload["bridge"], "TESSA_BRIDGE_1")
+        self.assertEqual(
+            payload["proof"],
+            hmac.new(TOKEN.encode(), nonce.encode(), hashlib.sha256).hexdigest(),
+        )
+        self.assertNotIn(TOKEN, str(payload))
+        response = await self.client.get("/probe?nonce=short")
+        self.assertEqual(response.status, 400)
 
     async def test_video_capture_does_not_block_control_ping(self):
         class FakeRaw:
