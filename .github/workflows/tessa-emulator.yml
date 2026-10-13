@@ -56,7 +56,7 @@ jobs:
             adb shell pidof com.tessa.remote > tessa-smoke/pid-after.txt
             cmp -s tessa-smoke/pid-before.txt tessa-smoke/pid-after.txt
             adb exec-out screencap -p > tessa-smoke/restored.png
-            adb shell input tap 70 130
+            adb shell input tap 70 180
             sleep 3
             # Android first-run immersive confirmation overlay; dismiss the native system tutorial.
             adb shell input tap 1700 510
@@ -71,6 +71,7 @@ jobs:
             test -s tessa-smoke/portrait.png
             test -s tessa-smoke/restored.png
             test -s tessa-smoke/fullscreen.png
+            python3 -c "import struct; f=open('tessa-smoke/fullscreen.png','rb'); f.seek(16); w,h=struct.unpack('>II',f.read(8)); assert w>h, f'Expected landscape fullscreen, got {w}x{h}'"
             python3 -c "import struct; f=open('tessa-smoke/returned.png','rb'); f.seek(16); w,h=struct.unpack('>II',f.read(8)); assert h>w, f'Expected portrait after Android Back, got {w}x{h}'"
       - name: Upload smoke screenshot and device log
         if: always()
