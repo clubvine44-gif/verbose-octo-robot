@@ -46,6 +46,8 @@ class MainActivity : Activity() {
              or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
         web = WebView(this)
         web.setBackgroundColor(Color.rgb(5, 11, 20))
+        web.settings.allowFileAccess = false
+        web.settings.allowContentAccess = false
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.settings.cacheMode = WebSettings.LOAD_DEFAULT
@@ -78,7 +80,7 @@ class MainActivity : Activity() {
                 OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback!!
             )
         }
-        web.loadDataWithBaseURL("file:///android_asset/", assets.open("ui.xml").bufferedReader(Charsets.UTF_8).use { it.readText() }, "text/html", "UTF-8", null)
+        web.loadDataWithBaseURL("http://127.0.0.1:18766/", assets.open("ui.xml").bufferedReader(Charsets.UTF_8).use { it.readText() }, "text/html", "UTF-8", null)
     }
     inner class Bridge {
         @JavascriptInterface fun haptic() {
